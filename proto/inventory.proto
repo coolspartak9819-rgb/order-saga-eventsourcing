@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/clients/inventorypb";
+
+service InventoryService {
+  rpc ReserveInventory(ReserveInventoryRequest) returns (InventoryResponse);
+  rpc CancelReservation(CancelReservationRequest) returns (InventoryResponse);
+}
+
+message InventoryItem {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message ReserveInventoryRequest {
+  string order_id = 1;
+  repeated InventoryItem items = 2;
+}
+
+message CancelReservationRequest {
+  string order_id = 1;
+  repeated InventoryItem items = 2;
+}
+
+message InventoryResponse {
+  string order_id = 1;
+  repeated InventoryItem items = 2;
+  string status = 3;
+  string reason = 4;
+}

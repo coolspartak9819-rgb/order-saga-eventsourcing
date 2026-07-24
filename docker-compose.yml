@@ -15,14 +15,36 @@ services:
     volumes:
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
-  app:
+  order-service:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE: order-service
     depends_on:
       db:
         condition: service_healthy
+      payment-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/orders?sslmode=disable
+      PAYMENT_SERVICE_ADDR: payment-service:50051
+      INVENTORY_SERVICE_ADDR: inventory-service:50052
     ports:
       - "8080:8080"
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: payment-service
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: inventory-service

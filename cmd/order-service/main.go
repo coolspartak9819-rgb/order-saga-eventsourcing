@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/api"
+	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/clients"
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/domain"
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/infrastructure"
 )
@@ -35,8 +36,18 @@ func main() {
 	}
 
 	eventStore := infrastructure.NewPostgresEventStore(db)
-	paymentService := FakePaymentService{}
-	inventoryService := FakeInventoryService{}
+	paymentService, err := clients.NewPaymentClient(getEnv("PAYMENT_SERVICE_ADDR", "payment-service:50051"))
+	if err != nil {
+		log.Fatalf("create payment client: %v", err)
+	}
+	defer paymentService.Close()
+
+	inventoryService, err := clients.NewInventoryClient(getEnv("INVENTORY_SERVICE_ADDR", "inventory-service:50052"))
+	if err != nil {
+		log.Fatalf("create inventory client: %v", err)
+	}
+	defer inventoryService.Close()
+
 	saga := domain.NewOrderSagaOrchestrator(eventStore, paymentService, inventoryService)
 	orderHandler := api.NewOrderHandler(eventStore, saga)
 
@@ -75,22 +86,10 @@ func main() {
 	log.Println("order service stopped")
 }
 
-type FakePaymentService struct{}
-
-func (FakePaymentService) ProcessPayment(ctx context.Context, orderID string, amount float64) error {
-	return ctx.Err()
-}
-
-func (FakePaymentService) RefundPayment(ctx context.Context, orderID string, amount float64) error {
-	return ctx.Err()
-}
-
-type FakeInventoryService struct{}
-
-func (FakeInventoryService) ReserveInventory(ctx context.Context, orderID string, items []domain.OrderItem) error {
-	return ctx.Err()
-}
-
-func (FakeInventoryService) ReleaseInventory(ctx context.Context, orderID string, items []domain.OrderItem) error {
-	return ctx.Err()
+func getEnv(key, fallback string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	return value
 }

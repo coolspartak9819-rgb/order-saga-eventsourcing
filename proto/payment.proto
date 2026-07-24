@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/clients/paymentpb";
+
+service PaymentService {
+  rpc AuthorizePayment(AuthorizePaymentRequest) returns (PaymentResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (PaymentResponse);
+}
+
+message AuthorizePaymentRequest {
+  string order_id = 1;
+  double amount = 2;
+}
+
+message RefundPaymentRequest {
+  string order_id = 1;
+  double amount = 2;
+}
+
+message PaymentResponse {
+  string order_id = 1;
+  double amount = 2;
+  string status = 3;
+  string reason = 4;
+}
