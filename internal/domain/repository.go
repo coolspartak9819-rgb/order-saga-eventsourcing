@@ -2,8 +2,11 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+var ErrConcurrencyConflict = errors.New("concurrency conflict")
 
 type EventStore interface {
 	SaveEvents(ctx context.Context, aggregateID string, events []DomainEvent, expectedVersion int) error

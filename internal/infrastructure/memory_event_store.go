@@ -2,13 +2,12 @@ package infrastructure
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/domain"
 )
 
-var ErrConcurrencyConflict = errors.New("concurrency conflict")
+var ErrConcurrencyConflict = domain.ErrConcurrencyConflict
 
 type MemoryEventStore struct {
 	mu     sync.RWMutex
@@ -35,7 +34,7 @@ func (s *MemoryEventStore) SaveEvents(ctx context.Context, aggregateID string, e
 
 	currentVersion := len(s.events[aggregateID])
 	if expectedVersion != currentVersion {
-		return ErrConcurrencyConflict
+		return domain.ErrConcurrencyConflict
 	}
 
 	s.events[aggregateID] = append(s.events[aggregateID], events...)
