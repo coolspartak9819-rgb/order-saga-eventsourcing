@@ -17,9 +17,9 @@ type DomainEvent interface {
 }
 
 type OrderItem struct {
-	ProductID string
-	Quantity  int
-	Price     int64
+	ProductID string `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+	Price     int64  `json:"price"`
 }
 
 type OrderCreatedEvent struct {
