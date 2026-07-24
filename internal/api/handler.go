@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -22,9 +23,15 @@ func NewOrderHandler(eventStore domain.EventStore, saga *domain.OrderSagaOrchest
 	}
 }
 
-type createOrderRequest struct {
-	CustomerID string             `json:"customer_id"`
-	Items      []domain.OrderItem `json:"items"`
+type CreateOrderRequest struct {
+	CustomerID string            `json:"customer_id"`
+	Items      []CreateOrderItem `json:"items"`
+}
+
+type CreateOrderItem struct {
+	ProductID string  `json:"product_id"`
+	Quantity  int     `json:"quantity"`
+	Price     float64 `json:"price"`
 }
 
 type createOrderResponse struct {
@@ -45,10 +52,11 @@ type errorResponse struct {
 }
 
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	var req createOrderRequest
+	var req CreateOrderRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
+		log.Printf("failed to decode create order req: %v", err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -59,7 +67,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, err := domain.NewOrder(orderID, req.CustomerID, req.Items)
+	order, err := domain.NewOrder(orderID, req.CustomerID, mapCreateOrderItems(req.Items))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -141,6 +149,23 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 
 func writeError(w http.ResponseWriter, statusCode int, message string) {
 	writeJSON(w, statusCode, errorResponse{Error: message})
+}
+
+func mapCreateOrderItems(items []CreateOrderItem) []domain.OrderItem {
+	if len(items) == 0 {
+		return nil
+	}
+
+	domainItems := make([]domain.OrderItem, len(items))
+	for i, item := range items {
+		domainItems[i] = domain.OrderItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Price:     int64(item.Price),
+		}
+	}
+
+	return domainItems
 }
 
 func newUUID() (string, error) {
