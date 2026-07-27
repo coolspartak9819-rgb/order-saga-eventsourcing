@@ -16,6 +16,7 @@ import (
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/domain"
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/infrastructure"
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/middleware"
+	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/observability"
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/outbox"
 	_ "github.com/lib/pq"
 )
@@ -84,11 +85,13 @@ func main() {
 
 		writeHealthResponse(w, http.StatusOK, "ready")
 	})
+	metrics := observability.NewMetrics()
+	mux.Handle("GET /metrics", metrics.Handler())
 
 	idempotencyMiddleware := middleware.NewIdempotencyMiddleware(db)
 	server := &http.Server{
 		Addr:         ":8080",
-		Handler:      idempotencyMiddleware.Wrap(mux),
+		Handler:      metrics.Middleware(idempotencyMiddleware.Wrap(mux)),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
