@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.vscode
+*.log
+*.pdf
+*.zip
+resume_go_backend.md
+README.md
+**/*_test.go

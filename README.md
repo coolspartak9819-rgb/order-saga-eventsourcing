@@ -1,94 +1,266 @@
 # Order Saga & Event Sourcing in Go
 
-A lightweight implementation of an e-commerce order processing system using **Event Sourcing** and an **Orchestrator-based Saga** pattern with compensating transactions. I built it with zero external dependencies in Go.
+Backend system for order processing built around **Event Sourcing**, an **orchestrator-based Saga**, idempotent HTTP requests, gRPC service calls, PostgreSQL transactions, and the transactional outbox pattern.
+
+I built this project to show how I think about backend systems where state changes matter: orders, payments, inventory, retries, compensation, concurrent writes, and event publication after commit.
 
 ---
 
-## 💡 Architecture & Design Decisions
+## Why I Built It
 
-- **Event Sourcing Core:** Orders are not updated in-place. State is reconstructed by applying a sequence of immutable domain events through `LoadFromHistory`, including `OrderCreated`, `PaymentAuthorized`, `InventoryReserved`, and cancellation events.
-- **Optimistic Concurrency Control (OCC):** The `EventStore` contract enforces version checks with `expectedVersion != currentVersion`, preventing conflicting concurrent writes.
-- **Saga Orchestrator:** `OrderSagaOrchestrator` coordinates the order workflow across payment and inventory services.
-- **Compensating Transactions:** If inventory reservation fails after payment authorization, the orchestrator calls `RefundPayment` and marks the order as `CANCELLED`.
-- **Simple Infrastructure:** The repository includes a thread-safe in-memory event store using `sync.RWMutex`, which keeps the domain easy to test without adding a database.
+I wanted a compact but production-like Go project that goes beyond basic CRUD.
+
+The main goal was to model a workflow where an order moves through several services and every important state transition is stored as an immutable event. If something fails halfway through, the system records the failure and runs a compensating action instead of hiding the error behind a simple status update.
 
 ---
 
-## 🔄 Saga Execution Flow
+## Architecture
+
+```text
+Client
+  |
+  | HTTP
+  v
+Order Service
+  |-- Idempotency Middleware
+  |-- Order Aggregate
+  |-- Saga Orchestrator
+  |-- PostgreSQL EventStore
+  |-- Outbox Worker
+  |
+  | gRPC
+  |----> Payment Service
+  |
+  | gRPC
+  |----> Inventory Service
+  |
+  | publish
+  v
+NATS JetStream
+
+PostgreSQL
+  |-- events
+  |-- outbox
+  |-- idempotency_keys
+```
+
+### Design Decisions
+
+- **Event Sourcing:** The order state is rebuilt by applying events through `LoadFromHistory`. The current status is a result of history, not a mutable row.
+- **Saga Orchestrator:** `OrderSagaOrchestrator` coordinates payment and inventory calls and records each step as a domain event.
+- **Compensating Transactions:** If inventory reservation fails after payment authorization, the saga calls `RefundPayment` and cancels the order.
+- **Optimistic Concurrency Control:** `SaveEvents` checks `expectedVersion` against the current aggregate version and also relies on a unique DB index on `(aggregate_id, version)`.
+- **Transactional Outbox:** Domain events and outbox records are saved in the same PostgreSQL transaction. The worker publishes pending messages to NATS JetStream after commit.
+- **Idempotency:** API requests can use `X-Idempotency-Key`; repeated requests receive the stored response body and status code.
+
+---
+
+## Saga Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Client
+    participant API as Order HTTP API
     participant Saga as OrderSagaOrchestrator
-    participant Store as EventStore
-    participant Pay as PaymentService
-    participant Inv as InventoryService
+    participant Store as PostgreSQL EventStore
+    participant Pay as Payment gRPC Service
+    participant Inv as Inventory gRPC Service
+    participant Outbox as Outbox Worker
+    participant NATS as NATS JetStream
 
-    Client->>Saga: ExecuteOrderSaga(Order)
-    Saga->>Store: Save(OrderCreated)
+    Client->>API: POST /api/orders
+    API->>Saga: ExecuteOrderSaga(order)
+    Saga->>Store: Save(OrderCreated + outbox)
 
-    alt Payment Failure Path
-        Saga->>Pay: ProcessPayment() [FAILS]
-        Saga->>Store: Save(PaymentFailed, OrderCancelled)
-    else Happy & Rollback Paths
-        Saga->>Pay: ProcessPayment() [OK]
-        Saga->>Store: Save(PaymentAuthorized)
+    alt Payment fails
+        Saga->>Pay: AuthorizePayment
+        Pay-->>Saga: FAILED
+        Saga->>Store: Save(PaymentFailed, OrderCancelled + outbox)
+    else Payment succeeds
+        Saga->>Pay: AuthorizePayment
+        Pay-->>Saga: AUTHORIZED
+        Saga->>Store: Save(PaymentAuthorized + outbox)
 
-        alt Inventory Failure (Rollback Path)
-            Saga->>Inv: ReserveInventory() [FAILS]
-            Saga->>Pay: RefundPayment() [COMPENSATION]
-            Saga->>Store: Save(InventoryFailed, OrderCancelled)
-        else Happy Path
-            Saga->>Inv: ReserveInventory() [OK]
-            Saga->>Store: Save(InventoryReserved, OrderCompleted)
+        alt Inventory fails
+            Saga->>Inv: ReserveInventory
+            Inv-->>Saga: FAILED
+            Saga->>Pay: RefundPayment
+            Saga->>Store: Save(InventoryFailed, OrderCancelled + outbox)
+        else Happy path
+            Saga->>Inv: ReserveInventory
+            Inv-->>Saga: RESERVED
+            Saga->>Store: Save(InventoryReserved, OrderCompleted + outbox)
         end
     end
+
+    Outbox->>Store: Load PENDING messages
+    Outbox->>NATS: Publish orders.events
+    Outbox->>Store: Mark PUBLISHED
 ```
+
+---
+
+## Tech Stack
+
+- Go
+- PostgreSQL
+- `database/sql`
+- gRPC / Protocol Buffers
+- NATS JetStream
+- Docker / Docker Compose
+- Event Sourcing
+- Saga Pattern
+- Transactional Outbox
+- Idempotency Middleware
+- Unit tests
+
+---
+
+## How To Run
+
+Start the full local environment:
+
+```bash
+docker compose up --build
+```
+
+The `db-migrate` one-shot service applies the idempotent schema before the
+Order Service starts. This also handles an existing local PostgreSQL
+container where Docker would not rerun `/docker-entrypoint-initdb.d` scripts.
+
+Services:
+
+- Order HTTP API: `http://localhost:8080`
+- Liveness check: `http://localhost:8080/healthz`
+- Readiness check: `http://localhost:8080/readyz`
+- PostgreSQL: `localhost:5432`
+- NATS client port: `localhost:4222`
+- NATS monitoring: `http://localhost:8222`
+- Payment and Inventory gRPC services are available only inside the Docker network.
+
+---
+
+## API
+
+### Create Order
+
+```bash
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: demo-order-1" \
+  -d '{
+    "customer_id": "customer-1",
+    "items": [
+      {
+        "product_id": "product-1",
+        "quantity": 2,
+        "price": 100
+      }
+    ]
+  }'
+```
+
+Example response:
+
+```json
+{
+  "order_id": "generated-order-id",
+  "status": "COMPLETED"
+}
+```
+
+### Get Order
+
+```bash
+curl http://localhost:8080/api/orders/{order_id}
+```
+
+Example response:
+
+```json
+{
+  "id": "generated-order-id",
+  "customer_id": "customer-1",
+  "status": "COMPLETED",
+  "total_amount": 200,
+  "version": 4
+}
+```
+
+### Health Checks
+
+```bash
+curl http://localhost:8080/healthz
+curl http://localhost:8080/readyz
+```
+
+`/healthz` confirms that the HTTP process is alive. `/readyz` also checks
+PostgreSQL and the NATS connection used by the outbox publisher.
 
 ---
 
 ## Project Layout
 
 ```text
-internal/domain
-  events.go       Domain events and event type constants
-  order.go        Event-sourced Order aggregate
-  repository.go   EventStore interface and event envelope metadata
-  saga.go         Order saga orchestrator and service interfaces
-  *_test.go       Event sourcing and saga tests
+cmd/
+  order-service/       HTTP API, Saga wiring, Outbox worker startup
+  payment-service/     standalone gRPC Payment service
+  inventory-service/   standalone gRPC Inventory service
 
-internal/infrastructure
-  memory_event_store.go   Thread-safe in-memory EventStore
+internal/
+  api/                 HTTP handlers
+  clients/             gRPC clients and generated protobuf code
+  domain/              events, aggregate, EventStore contract, saga
+  infrastructure/      PostgreSQL and in-memory EventStore implementations
+  middleware/          idempotency middleware
+  outbox/              NATS JetStream publisher worker
+
+proto/                 protobuf contracts
+scripts/               PostgreSQL init schema
 ```
 
 ---
 
-## What the Tests Cover
+## What To Look At
 
-- Creating an order and recording uncommitted events.
-- Applying payment and inventory events to mutate aggregate state.
-- Saving and loading event streams through the in-memory event store.
-- Hydrating a fresh `Order` from history.
-- Successful saga execution.
-- Payment failure without calling inventory.
-- Inventory failure with payment refund compensation.
+- `internal/domain/order.go` - event-sourced aggregate and event application.
+- `internal/domain/saga.go` - saga orchestration and compensation flow.
+- `internal/infrastructure/postgres_event_store.go` - transactional event store, OCC, and outbox insert.
+- `internal/middleware/idempotency.go` - request idempotency through PostgreSQL.
+- `internal/outbox/publisher.go` - outbox worker publishing events to NATS JetStream.
+- `cmd/payment-service/main.go` - standalone payment gRPC service.
+- `cmd/inventory-service/main.go` - standalone inventory gRPC service.
+- `scripts/init.sql` - database schema for events, outbox, and idempotency.
 
 ---
 
-## Running the Project
+## Tests
 
 ```bash
 go test ./...
 ```
 
-The project uses only the Go standard library, so there are no dependency setup steps.
+Current tests cover:
+
+- creating an order and collecting uncommitted events
+- rejecting invalid order items
+- stable JSON field names for persisted events
+- applying domain events to mutate aggregate state
+- saving and loading events from the in-memory EventStore
+- hydrating a fresh `Order` from event history
+- creating and reading an order through the HTTP handler
+- successful saga execution
+- payment failure without calling inventory
+- inventory failure with payment refund compensation
 
 ---
 
-## Key Files
+## Trade-offs
 
-- `internal/domain/order.go` contains the aggregate and event application logic.
-- `internal/domain/saga.go` contains the orchestrator and compensation flow.
-- `internal/infrastructure/memory_event_store.go` contains the OCC-aware in-memory store.
-- `internal/domain/saga_test.go` shows the main workflow scenarios with simple mocks.
+- Payment and Inventory services use simple in-memory business logic for local development.
+- The outbox worker publishes one pending event at a time. It is intentionally simple and easy to reason about.
+- Monetary values currently use `float64` to match the API contract. A production payment system should use integer minor units or a decimal type.
+- Authentication is not implemented; the focus is on order workflow, consistency, and integration patterns.
+- Database schema is initialized through `scripts/init.sql`, not a full migration tool.
+- Observability is currently based on health endpoints and logs; metrics, tracing, and a durable retry/DLQ policy are the next natural steps.

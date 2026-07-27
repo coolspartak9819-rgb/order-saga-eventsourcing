@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -90,6 +91,22 @@ func (s *PostgresEventStore) SaveEvents(ctx context.Context, aggregateID string,
 				tx = nil
 				return domain.ErrConcurrencyConflict
 			}
+			return err
+		}
+
+		outboxID, err := newUUID()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO outbox (id, aggregate_id, event_type, payload, status)
+			 VALUES ($1, $2, $3, $4, 'PENDING')`,
+			outboxID,
+			aggregateID,
+			event.EventType(),
+			payload,
+		); err != nil {
 			return err
 		}
 	}
@@ -222,6 +239,25 @@ func decodePayload(payload []byte, event domain.DomainEvent) error {
 func isUniqueViolation(err error) bool {
 	var pqErr *pq.Error
 	return errors.As(err, &pqErr) && string(pqErr.Code) == uniqueViolationCode
+}
+
+func newUUID() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf(
+		"%x-%x-%x-%x-%x",
+		b[0:4],
+		b[4:6],
+		b[6:8],
+		b[8:10],
+		b[10:16],
+	), nil
 }
 
 var _ domain.EventStore = (*PostgresEventStore)(nil)

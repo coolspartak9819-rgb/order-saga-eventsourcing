@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,7 @@ var (
 	ErrOrderIDRequired    = errors.New("order id is required")
 	ErrCustomerIDRequired = errors.New("customer id is required")
 	ErrOrderItemsRequired = errors.New("order items are required")
+	ErrInvalidOrderItem   = errors.New("invalid order item")
 )
 
 type Order struct {
@@ -30,14 +32,19 @@ type Order struct {
 }
 
 func NewOrder(id, customerID string, items []OrderItem) (*Order, error) {
-	if id == "" {
+	if strings.TrimSpace(id) == "" {
 		return nil, ErrOrderIDRequired
 	}
-	if customerID == "" {
+	if strings.TrimSpace(customerID) == "" {
 		return nil, ErrCustomerIDRequired
 	}
 	if len(items) == 0 {
 		return nil, ErrOrderItemsRequired
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.ProductID) == "" || item.Quantity <= 0 || item.Price < 0 {
+			return nil, ErrInvalidOrderItem
+		}
 	}
 
 	order := &Order{}
@@ -53,6 +60,10 @@ func NewOrder(id, customerID string, items []OrderItem) (*Order, error) {
 }
 
 func (o *Order) Apply(event DomainEvent) {
+	if o == nil || event == nil {
+		return
+	}
+
 	applied := true
 
 	switch e := event.(type) {
@@ -122,11 +133,19 @@ func (o *Order) Apply(event DomainEvent) {
 }
 
 func (o *Order) RaiseEvent(event DomainEvent) {
+	if o == nil || event == nil {
+		return
+	}
+
 	o.Apply(event)
 	o.UncommittedEvents = append(o.UncommittedEvents, event)
 }
 
 func (o *Order) LoadFromHistory(events []DomainEvent) {
+	if o == nil {
+		return
+	}
+
 	for _, event := range events {
 		o.Apply(event)
 	}
@@ -142,13 +161,13 @@ func (o *Order) applyOrderCreated(event OrderCreatedEvent) {
 	o.CustomerID = event.CustomerID
 	o.Status = OrderStatusCreated
 	o.Items = cloneOrderItems(event.Items)
-	o.TotalAmount = float64(event.Amount)
+	o.TotalAmount = event.Amount
 }
 
-func calculateTotalAmount(items []OrderItem) int64 {
-	var total int64
+func calculateTotalAmount(items []OrderItem) float64 {
+	var total float64
 	for _, item := range items {
-		total += item.Price * int64(item.Quantity)
+		total += item.Price * float64(item.Quantity)
 	}
 	return total
 }
