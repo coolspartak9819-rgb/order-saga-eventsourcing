@@ -1,3 +1,5 @@
+[![CI](https://github.com/coolspartak9819-rgb/order-saga-eventsourcing/actions/workflows/ci.yml/badge.svg)](https://github.com/coolspartak9819-rgb/order-saga-eventsourcing/actions/workflows/ci.yml)
+
 Production-like Go order platform with Event Sourcing, Saga orchestration, gRPC microservices, PostgreSQL, NATS JetStream, transactional outbox, idempotency, and Docker Compose.
 
 go
