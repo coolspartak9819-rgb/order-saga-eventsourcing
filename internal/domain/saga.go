@@ -75,7 +75,7 @@ func (o *OrderSagaOrchestrator) ExecuteOrderSaga(ctx context.Context, order *Ord
 
 	order.RaiseEvent(PaymentAuthorizedEvent{
 		OrderID:    order.ID,
-		Amount:     int64(order.TotalAmount),
+		Amount:     order.TotalAmount,
 		OccurredAt: time.Now().UTC(),
 	})
 

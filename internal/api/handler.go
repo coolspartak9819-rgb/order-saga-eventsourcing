@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -53,10 +54,21 @@ type errorResponse struct {
 
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var req CreateOrderRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
 		log.Printf("failed to decode create order req: %v", err)
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			log.Printf("failed to decode create order req: multiple JSON values")
+		} else {
+			log.Printf("failed to decode create order req: %v", err)
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -161,7 +173,7 @@ func mapCreateOrderItems(items []CreateOrderItem) []domain.OrderItem {
 		domainItems[i] = domain.OrderItem{
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
-			Price:     int64(item.Price),
+			Price:     item.Price,
 		}
 	}
 
