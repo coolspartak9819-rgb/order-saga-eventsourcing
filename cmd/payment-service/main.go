@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/coolspartak9819-rgb/order-saga-eventsourcing/internal/clients/paymentpb"
@@ -20,6 +21,15 @@ type paymentServer struct {
 }
 
 func (s *paymentServer) AuthorizePayment(ctx context.Context, req *paymentpb.AuthorizePaymentRequest) (*paymentpb.PaymentResponse, error) {
+	if failureEnabled("PAYMENT_FAIL") {
+		return &paymentpb.PaymentResponse{
+			OrderId: req.GetOrderId(),
+			Amount:  req.GetAmount(),
+			Status:  "FAILED",
+			Reason:  "payment failure injection is enabled",
+		}, nil
+	}
+
 	if req.GetAmount() <= 0 {
 		return &paymentpb.PaymentResponse{
 			OrderId: req.GetOrderId(),
@@ -34,6 +44,11 @@ func (s *paymentServer) AuthorizePayment(ctx context.Context, req *paymentpb.Aut
 		Amount:  req.GetAmount(),
 		Status:  "AUTHORIZED",
 	}, nil
+}
+
+func failureEnabled(name string) bool {
+	value := strings.TrimSpace(os.Getenv(name))
+	return value == "1" || strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
 }
 
 func (s *paymentServer) RefundPayment(ctx context.Context, req *paymentpb.RefundPaymentRequest) (*paymentpb.PaymentResponse, error) {

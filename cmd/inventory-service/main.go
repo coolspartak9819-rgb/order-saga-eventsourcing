@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -30,6 +31,10 @@ func newInventoryServer() *inventoryServer {
 }
 
 func (s *inventoryServer) ReserveInventory(ctx context.Context, req *inventorypb.ReserveInventoryRequest) (*inventorypb.InventoryResponse, error) {
+	if failureEnabled("INVENTORY_FAIL") {
+		return inventoryResponse(req.GetOrderId(), req.GetItems(), "FAILED", "inventory failure injection is enabled"), nil
+	}
+
 	if len(req.GetItems()) == 0 {
 		return inventoryResponse(req.GetOrderId(), req.GetItems(), "FAILED", "items are required"), nil
 	}
@@ -44,6 +49,11 @@ func (s *inventoryServer) ReserveInventory(ctx context.Context, req *inventorypb
 
 	s.reservations[req.GetOrderId()] = cloneItems(req.GetItems())
 	return inventoryResponse(req.GetOrderId(), req.GetItems(), "RESERVED", ""), nil
+}
+
+func failureEnabled(name string) bool {
+	value := strings.TrimSpace(os.Getenv(name))
+	return value == "1" || strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
 }
 
 func (s *inventoryServer) CancelReservation(ctx context.Context, req *inventorypb.CancelReservationRequest) (*inventorypb.InventoryResponse, error) {

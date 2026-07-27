@@ -134,6 +134,7 @@ Services:
 - Order HTTP API: `http://localhost:8080`
 - Liveness check: `http://localhost:8080/healthz`
 - Readiness check: `http://localhost:8080/readyz`
+- Prometheus metrics: `http://localhost:8080/metrics`
 - PostgreSQL: `localhost:5432`
 - NATS client port: `localhost:4222`
 - NATS monitoring: `http://localhost:8222`
@@ -193,10 +194,29 @@ Example response:
 ```bash
 curl http://localhost:8080/healthz
 curl http://localhost:8080/readyz
+curl http://localhost:8080/metrics
 ```
 
 `/healthz` confirms that the HTTP process is alive. `/readyz` also checks
 PostgreSQL and the NATS connection used by the outbox publisher.
+
+## End-to-End Checks
+
+Run the happy path against the running Compose stack:
+
+```bash
+sh scripts/e2e.sh
+```
+
+Run the same checks with payment and inventory failure injection:
+
+```bash
+RUN_FAILURE_SCENARIOS=true sh scripts/e2e.sh
+```
+
+The failure scenarios temporarily recreate the gRPC service with
+`PAYMENT_FAIL=true` or `INVENTORY_FAIL=true`, then verify the recorded
+failure and cancellation events in PostgreSQL.
 
 ---
 

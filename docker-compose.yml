@@ -70,6 +70,8 @@ services:
       dockerfile: Dockerfile
       args:
         SERVICE: payment-service
+    environment:
+      PAYMENT_FAIL: ${PAYMENT_FAIL:-false}
 
   inventory-service:
     build:
@@ -77,3 +79,5 @@ services:
       dockerfile: Dockerfile
       args:
         SERVICE: inventory-service
+    environment:
+      INVENTORY_FAIL: ${INVENTORY_FAIL:-false}
