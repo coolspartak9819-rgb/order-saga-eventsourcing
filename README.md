@@ -1,3 +1,17 @@
+Production-like Go order platform with Event Sourcing, Saga orchestration, gRPC microservices, PostgreSQL, NATS JetStream, transactional outbox, idempotency, and Docker Compose.
+
+go
+golang
+event-sourcing
+saga-pattern
+microservices
+grpc
+postgresql
+nats
+docker
+distributed-systems
+outbox-pattern
+
 # Order Saga & Event Sourcing in Go
 
 Backend system for order processing built around **Event Sourcing**, an **orchestrator-based Saga**, idempotent HTTP requests, gRPC service calls, PostgreSQL transactions, and the transactional outbox pattern.
