@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    price INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);
+
+INSERT INTO items (title, price) VALUES ('alpha', 100), ('beta', 200);

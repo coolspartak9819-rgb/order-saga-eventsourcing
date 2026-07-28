@@ -1,0 +1,16 @@
+name: PHP Platform Lab
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  compose-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config
+      - run: docker compose up --build -d
+      - run: chmod +x scripts/e2e.sh && ./scripts/e2e.sh
+      - if: always()
+        run: docker compose down -v
