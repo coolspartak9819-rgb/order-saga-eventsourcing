@@ -14,6 +14,9 @@ Small platform engineering project around a PHP backend.
 - dependency failure handling;
 - transactional outbox with a dedicated Kafka worker;
 - idempotent write requests.
+- retry and terminal failure handling for outbox messages;
+- graceful worker shutdown;
+- an e2e dependency failure check for Redis.
 
 ## Run locally
 

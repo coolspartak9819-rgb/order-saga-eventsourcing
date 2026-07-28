@@ -14,6 +14,8 @@ readiness, metrics, reproducible local environments and failure testing.
 - GitHub Actions
 - Kafka and transactional outbox
 - Idempotent write requests
+- Outbox retry policy with a terminal `FAILED` state after five attempts
+- Graceful shutdown handling for the worker
 
 The application exposes a small items API. The interesting part of the
 project is the runtime setup and operational checks, not the business logic.
@@ -47,3 +49,4 @@ be reached. The e2e script waits for readiness, exercises the API and checks
 that a dependency failure produces a non-ready response. Write requests use
 the `Idempotency-Key` header and are stored together with an outbox event in
 one MySQL transaction. A separate worker publishes pending events to Kafka.
+Failed publishes are retried and moved to `FAILED` after five attempts.

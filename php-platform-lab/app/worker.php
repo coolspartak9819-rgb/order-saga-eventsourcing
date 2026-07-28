@@ -17,8 +17,19 @@ $pdo = new PDO(
 $producer = new RdKafka\Producer();
 $producer->addBrokers(envValue('KAFKA_BROKERS', 'kafka:9092'));
 $topic = $producer->newTopic('items.events');
+$stopping = false;
 
-while (true) {
+if (function_exists('pcntl_async_signals')) {
+    pcntl_async_signals(true);
+    pcntl_signal(SIGTERM, static function () use (&$stopping): void {
+        $stopping = true;
+    });
+    pcntl_signal(SIGINT, static function () use (&$stopping): void {
+        $stopping = true;
+    });
+}
+
+while (!$stopping) {
     $pdo->beginTransaction();
     $row = $pdo->query(
         "SELECT id, aggregate_id, event_type, payload FROM outbox
@@ -45,6 +56,12 @@ while (true) {
     } catch (Throwable $error) {
         $pdo->rollBack();
         error_log('outbox publish failed: ' . $error->getMessage());
+        $failed = $pdo->prepare(
+            "UPDATE outbox SET attempts = attempts + 1,
+             status = CASE WHEN attempts + 1 >= 5 THEN 'FAILED' ELSE 'PENDING' END
+             WHERE id = ?"
+        );
+        $failed->execute([$row['id']]);
         sleep(2);
     }
 }
