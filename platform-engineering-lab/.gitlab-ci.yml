@@ -6,6 +6,10 @@ stages:
 
 variables:
   DOCKER_BUILDKIT: "1"
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: /certs
+  DOCKER_TLS_VERIFY: "1"
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
 
 compose_validate:
   stage: validate
@@ -17,7 +21,8 @@ image_build:
   stage: build
   image: docker:27-cli
   services:
-    - docker:27-dind
+    - name: docker:27-dind
+      alias: docker
   script:
     - docker build -t "$CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHA" ./app
 
@@ -25,7 +30,8 @@ smoke_test:
   stage: test
   image: docker:27-cli
   services:
-    - docker:27-dind
+    - name: docker:27-dind
+      alias: docker
   script:
     - docker compose up --build -d
     - apk add --no-cache curl

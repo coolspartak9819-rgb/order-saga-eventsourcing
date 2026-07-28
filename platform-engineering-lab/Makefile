@@ -12,6 +12,9 @@ logs:
 smoke:
 	./scripts/smoke.sh
 
+purge-cache:
+	./scripts/purge-cache.sh
+
 validate:
 	docker compose config -q
 

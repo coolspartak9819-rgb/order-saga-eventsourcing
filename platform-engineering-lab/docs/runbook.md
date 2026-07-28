@@ -6,6 +6,7 @@
 docker compose ps
 docker compose logs --tail=100 app proxy
 curl -i http://localhost:8082/health
+curl -i http://localhost:8082/ready
 ```
 
 Check whether the application container is healthy first. If the application
@@ -33,9 +34,9 @@ FAIL_MODE=false docker compose up -d app
 
 ## Cache problems
 
-Inspect `X-Cache-Status` on `/api/content`. Use a cache purge only after
-confirming that stale content is the issue. In production, purge should be
-authenticated and executed through the CDN/provider API.
+Inspect `X-Cache-Status` on `/api/content`. Use `./scripts/purge-cache.sh` only
+after confirming that stale content is the issue. In production, purge should
+be authenticated and executed through the CDN/provider API.
 
 ## Rollback
 

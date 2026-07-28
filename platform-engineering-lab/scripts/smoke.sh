@@ -11,6 +11,7 @@ for attempt in $(seq 1 30); do
 done
 
 curl -fsS "$base_url/health"
+curl -fsS "$base_url/ready"
 curl -fsS "$base_url/api/content"
 curl -fsS "$base_url/metrics"
 

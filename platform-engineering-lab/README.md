@@ -32,9 +32,10 @@ Services:
 
 ```bash
 curl http://localhost:8082/health
+curl http://localhost:8082/ready
 curl http://localhost:8082/api/content
 curl http://localhost:8082/metrics
-curl -X POST http://localhost:8082/cache/purge
+./scripts/purge-cache.sh
 ```
 
 The project is intentionally small in business scope. The focus is on how the
