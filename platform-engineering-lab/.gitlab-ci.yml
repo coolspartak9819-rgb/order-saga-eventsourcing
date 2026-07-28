@@ -44,4 +44,11 @@ deploy_production:
   image: alpine:3.20
   when: manual
   script:
-    - ./deploy/deploy.sh production
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - printf '%s' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd /opt/platform-engineering-lab && git pull --ff-only && APP_VERSION=$CI_COMMIT_SHORT_SHA docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd /opt/platform-engineering-lab && ./scripts/smoke.sh"

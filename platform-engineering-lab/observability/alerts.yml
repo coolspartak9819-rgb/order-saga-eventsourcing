@@ -1,0 +1,20 @@
+groups:
+  - name: platform-lab
+    rules:
+      - alert: PlatformAppDown
+        expr: platform_app_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Platform application is down
+          description: The application metrics endpoint is unavailable.
+
+      - alert: PlatformAppSlow
+        expr: platform_app_request_duration_seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform application is slow
+          description: Request duration is above 500ms.

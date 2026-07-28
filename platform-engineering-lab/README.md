@@ -43,3 +43,17 @@ service is built, deployed, monitored, cached, diagnosed and rolled back.
 
 See `docs/runbook.md` for incident procedures and `docs/cdn.md` for CDN and
 cache strategy notes.
+
+## Debian VM deployment
+
+The production-like overlay and Ansible playbooks are in `infra/ansible`.
+After adding a host to `inventory`, run:
+
+```bash
+ansible-playbook -i infra/ansible/inventory.example infra/ansible/deploy.yml
+```
+
+The GitLab deploy job expects protected variables `DEPLOY_HOST`,
+`DEPLOY_USER` and `DEPLOY_SSH_KEY`. TLS configuration is documented in
+`nginx/tls.conf.example` and should use Let's Encrypt certificates in a real
+environment.

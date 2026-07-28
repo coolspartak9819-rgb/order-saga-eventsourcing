@@ -6,3 +6,6 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: [proxy:80]
+
+rule_files:
+  - /etc/prometheus/alerts.yml

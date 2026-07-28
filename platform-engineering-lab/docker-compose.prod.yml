@@ -1,0 +1,23 @@
+services:
+  app:
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION:?APP_VERSION is required}
+      FAIL_MODE: "false"
+
+  proxy:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:80"
+
+  mysql:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  prometheus:
+    restart: unless-stopped
+
+  grafana:
+    restart: unless-stopped

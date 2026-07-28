@@ -1,0 +1,48 @@
+---
+- name: Deploy platform engineering lab
+  hosts: platform
+  become: true
+  vars:
+    app_root: /opt/platform-engineering-lab
+    app_repo: https://github.com/coolspartak9819-rgb/platform-engineering-lab.git
+    app_version: main
+  tasks:
+    - name: Install runtime packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - docker.io
+          - docker-compose-plugin
+          - ufw
+        state: present
+        update_cache: true
+
+    - name: Enable Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Clone application repository
+      ansible.builtin.git:
+        repo: "{{ app_repo }}"
+        dest: "{{ app_root }}"
+        version: "{{ app_version }}"
+        force: true
+
+    - name: Start production stack
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+        chdir: "{{ app_root }}"
+
+    - name: Allow SSH and HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"
+        - "80"
+        - "443"

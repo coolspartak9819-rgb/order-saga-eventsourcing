@@ -20,3 +20,6 @@ validate:
 
 deploy:
 	./deploy/deploy.sh staging
+
+prod-validate:
+	APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
