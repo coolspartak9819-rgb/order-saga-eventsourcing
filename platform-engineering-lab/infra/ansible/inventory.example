@@ -1,0 +1,3 @@
+[platform]
+staging ansible_host=192.0.2.10
+production ansible_host=192.0.2.20

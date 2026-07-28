@@ -1,0 +1,28 @@
+---
+- name: Prepare platform host
+  hosts: platform
+  become: true
+  tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - docker.io
+          - docker-compose-plugin
+          - unattended-upgrades
+        state: present
+        update_cache: true
+
+    - name: Enable Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: /opt/platform-engineering-lab
+        state: directory
+        owner: root
+        mode: '0755'

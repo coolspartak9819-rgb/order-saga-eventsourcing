@@ -1,0 +1,41 @@
+stages:
+  - validate
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_BUILDKIT: "1"
+
+compose_validate:
+  stage: validate
+  image: docker:27-cli
+  script:
+    - docker compose config -q
+
+image_build:
+  stage: build
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHA" ./app
+
+smoke_test:
+  stage: test
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  script:
+    - docker compose up --build -d
+    - apk add --no-cache curl
+    - ./scripts/smoke.sh
+  after_script:
+    - docker compose down -v
+
+deploy_production:
+  stage: deploy
+  image: alpine:3.20
+  when: manual
+  script:
+    - ./deploy/deploy.sh production
