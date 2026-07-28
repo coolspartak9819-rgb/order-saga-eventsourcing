@@ -38,6 +38,8 @@ Order Service
   v
 NATS JetStream
 
+Event Bridge -> Kafka topic orders.events
+
 PostgreSQL
   |-- events
   |-- outbox
@@ -52,6 +54,7 @@ PostgreSQL
 - **Optimistic Concurrency Control:** `SaveEvents` checks `expectedVersion` against the current aggregate version and also relies on a unique DB index on `(aggregate_id, version)`.
 - **Transactional Outbox:** Domain events and outbox records are saved in the same PostgreSQL transaction. The worker publishes pending messages to NATS JetStream after commit.
 - **Idempotency:** API requests can use `X-Idempotency-Key`; repeated requests receive the stored response body and status code.
+- **Kafka event bridge:** A dedicated bridge consumes committed order events from NATS JetStream and forwards them to Kafka using `aggregate_id` as the message key. It acknowledges the NATS message only after Kafka confirms the write.
 
 ---
 
@@ -108,6 +111,7 @@ sequenceDiagram
 - `database/sql`
 - gRPC / Protocol Buffers
 - NATS JetStream
+- Apache Kafka and Kafka event bridge
 - Docker / Docker Compose
 - Event Sourcing
 - Saga Pattern
