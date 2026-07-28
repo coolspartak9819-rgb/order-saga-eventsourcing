@@ -12,6 +12,8 @@ readiness, metrics, reproducible local environments and failure testing.
 - Redis 7
 - Docker Compose
 - GitHub Actions
+- Kafka and transactional outbox
+- Idempotent write requests
 
 The application exposes a small items API. The interesting part of the
 project is the runtime setup and operational checks, not the business logic.
@@ -42,4 +44,6 @@ docker compose down -v
 The stack uses separate nginx and PHP-FPM containers. MySQL and Redis have
 health checks, and the API does not report ready until both dependencies can
 be reached. The e2e script waits for readiness, exercises the API and checks
-that a dependency failure produces a non-ready response.
+that a dependency failure produces a non-ready response. Write requests use
+the `Idempotency-Key` header and are stored together with an outbox event in
+one MySQL transaction. A separate worker publishes pending events to Kafka.

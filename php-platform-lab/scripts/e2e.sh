@@ -13,9 +13,15 @@ done
 curl -fsS "$base_url/health"
 curl -fsS "$base_url/ready"
 curl -fsS "$base_url/items"
-curl -fsS -X POST "$base_url/items" \
+first_response=$(curl -fsS -X POST "$base_url/items" \
   -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: e2e-1' \
   -d '{"title":"e2e-item","price":42}'
+second_response=$(curl -fsS -X POST "$base_url/items" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: e2e-1' \
+  -d '{"title":"e2e-item","price":42}')
+test "$first_response" = "$second_response"
 curl -fsS "$base_url/metrics"
 
 echo "e2e checks passed"

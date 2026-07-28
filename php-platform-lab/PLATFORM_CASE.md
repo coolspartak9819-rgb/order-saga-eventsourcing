@@ -11,7 +11,9 @@ Small platform engineering project around a PHP backend.
 - Prometheus-style metrics endpoint;
 - reproducible end-to-end checks;
 - GitHub Actions validation;
-- dependency failure handling.
+- dependency failure handling;
+- transactional outbox with a dedicated Kafka worker;
+- idempotent write requests.
 
 ## Run locally
 

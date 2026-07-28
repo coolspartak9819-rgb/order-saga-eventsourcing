@@ -108,13 +108,50 @@ try {
     }
 
     if ($path === '/items' && $method === 'POST') {
+        $idempotencyKey = $_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? '';
+        if ($idempotencyKey !== '') {
+            $cachedResponse = database()->prepare(
+                'SELECT response_body, status_code FROM idempotency_keys WHERE idempotency_key = ?'
+            );
+            $cachedResponse->execute([$idempotencyKey]);
+            $stored = $cachedResponse->fetch();
+            if ($stored) {
+                jsonResponse(json_decode($stored['response_body'], true, 512, JSON_THROW_ON_ERROR), (int)$stored['status_code']);
+            }
+        }
+
         $input = json_decode(file_get_contents('php://input'), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($input) || !isset($input['title'], $input['price'])) {
             jsonResponse(['error' => 'title and price are required'], 400);
         }
-        $stmt = database()->prepare('INSERT INTO items (title, price) VALUES (?, ?)');
-        $stmt->execute([(string)$input['title'], (int)$input['price']]);
-        jsonResponse(['id' => (int)database()->lastInsertId()], 201);
+        $pdo = database();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('INSERT INTO items (title, price) VALUES (?, ?)');
+            $stmt->execute([(string)$input['title'], (int)$input['price']]);
+            $id = (int)$pdo->lastInsertId();
+            $event = json_encode([
+                'item_id' => $id,
+                'title' => (string)$input['title'],
+                'price' => (int)$input['price'],
+            ], JSON_THROW_ON_ERROR);
+            $outbox = $pdo->prepare(
+                'INSERT INTO outbox (aggregate_id, event_type, payload) VALUES (?, ?, ?)'
+            );
+            $outbox->execute([$id, 'ItemCreated', $event]);
+            if ($idempotencyKey !== '') {
+                $response = json_encode(['id' => $id], JSON_THROW_ON_ERROR);
+                $idempotency = $pdo->prepare(
+                    'INSERT INTO idempotency_keys (idempotency_key, response_body, status_code) VALUES (?, ?, ?)'
+                );
+                $idempotency->execute([$idempotencyKey, $response, 201]);
+            }
+            $pdo->commit();
+            jsonResponse(['id' => $id], 201);
+        } catch (Throwable $error) {
+            $pdo->rollBack();
+            throw $error;
+        }
     }
 
     jsonResponse(['error' => 'not found'], 404);
