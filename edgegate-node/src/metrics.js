@@ -6,6 +6,7 @@ export class Metrics {
     this.upstreams = new Map();
     this.wafBlocks = new Map();
     this.rateLimited = new Map();
+    this.configReloads = new Map();
     this.durations = new Map();
   }
 
@@ -29,6 +30,7 @@ export class Metrics {
 
   recordWAFBlock(rule) { increment(this.wafBlocks, labels({ rule })); }
   recordRateLimit(route) { increment(this.rateLimited, labels({ route })); }
+  recordConfigReload(status) { increment(this.configReloads, labels({ status })); }
 
   render(routes) {
     const lines = [
@@ -44,6 +46,9 @@ export class Metrics {
       '# HELP edgegate_rate_limited_total Requests rejected by rate limiting.',
       '# TYPE edgegate_rate_limited_total counter',
       ...renderMap('edgegate_rate_limited_total', this.rateLimited),
+      '# HELP edgegate_config_reloads_total Distributed configuration reload attempts.',
+      '# TYPE edgegate_config_reloads_total counter',
+      ...renderMap('edgegate_config_reloads_total', this.configReloads),
       '# HELP edgegate_request_duration_seconds Gateway request latency.',
       '# TYPE edgegate_request_duration_seconds histogram'
     ];

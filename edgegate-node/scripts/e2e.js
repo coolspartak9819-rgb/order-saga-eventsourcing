@@ -9,6 +9,16 @@ try {
   const baseline = await fetchJSON(`${gatewayUrl}/api/e2e`);
   assert(['backend-a', 'backend-b'].includes(baseline.name), 'baseline request did not reach an upstream');
 
+  const currentConfig = await fetchJSON(`${gatewayUrl}/control/config`, { headers: { 'x-control-key': 'demo-control-key' } });
+  const updateResponse = await fetch(`${gatewayUrl}/control/config`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', 'x-control-key': 'demo-control-key' },
+    body: JSON.stringify({ expectedVersion: currentConfig.version, config: currentConfig.config })
+  });
+  assert(updateResponse.status === 202, `config update returned ${updateResponse.status}`);
+  const updatedConfig = await updateResponse.json();
+  assert(updatedConfig.version === currentConfig.version + 1, 'config version did not advance');
+
   docker('compose', 'stop', 'backend-a');
   await wait(6500);
   for (let index = 0; index < 10; index += 1) {
@@ -27,8 +37,8 @@ function docker(...args) {
   execFileSync('docker', args, { stdio: 'inherit' });
 }
 
-async function fetchJSON(url) {
-  const response = await fetch(url);
+async function fetchJSON(url, options) {
+  const response = await fetch(url, options);
   assert(response.ok, `${url} returned ${response.status}`);
   return response.json();
 }

@@ -27,6 +27,8 @@ of hiding them behind a gateway framework.
 - Kubernetes deployment with probes, resources, HPA and PodDisruptionBudget;
 - optional cert-manager and nginx-ingress TLS automation;
 - automatic GHCR image publishing after CI and e2e checks;
+- Redis-backed distributed configuration with Pub/Sub fan-out;
+- optimistic concurrency for safe route-table updates across replicas;
 - Docker Compose demo stack and GitHub Actions CI.
 
 ## Architecture
@@ -168,6 +170,33 @@ kubectl apply -f deploy/k8s/edgegate.yaml
 The optional `deploy/k8s/tls.yaml` uses cert-manager and nginx-ingress to obtain
 and renew a Let's Encrypt certificate. Hostname, email and secret values must
 be replaced before deployment.
+
+## Distributed Configuration
+
+When `EDGEGATE_CONTROL_KEY` is configured, EdgeGate exposes a protected control
+endpoint. Configuration documents and their versions are stored in Redis. An
+atomic Lua script checks `expectedVersion`, writes the new document and
+publishes an update notification. Every gateway replica subscribes to the same
+channel and swaps its route table after successful validation.
+
+Read the current version:
+
+```bash
+curl -H 'X-Control-Key: demo-control-key' \
+  http://localhost:8080/control/config
+```
+
+Update configuration with optimistic concurrency:
+
+```bash
+curl -X PUT http://localhost:8080/control/config \
+  -H 'Content-Type: application/json' \
+  -H 'X-Control-Key: demo-control-key' \
+  -d '{"expectedVersion":0,"config":{"routes":[...]}}'
+```
+
+A stale version receives HTTP `409 Conflict`. Invalid configuration is
+rejected, and active replicas continue serving the previous route table.
 
 ## HTTP/2
 

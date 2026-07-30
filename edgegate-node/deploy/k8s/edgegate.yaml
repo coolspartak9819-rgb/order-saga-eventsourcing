@@ -44,6 +44,7 @@ type: Opaque
 stringData:
   EDGEGATE_API_KEYS: change-me
   EDGEGATE_JWT_SECRET: change-me
+  EDGEGATE_CONTROL_KEY: change-me
 ---
 apiVersion: apps/v1
 kind: Deployment

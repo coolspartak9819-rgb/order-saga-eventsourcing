@@ -5,6 +5,7 @@ services:
       - "8080:8080"
     environment:
       EDGEGATE_API_KEYS: demo-key
+      EDGEGATE_CONTROL_KEY: demo-control-key
     volumes:
       - ./config.example.json:/app/config.json:ro
       - ./plugins:/app/plugins:ro
