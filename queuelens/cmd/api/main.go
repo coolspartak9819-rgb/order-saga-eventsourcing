@@ -45,6 +45,9 @@ func main() {
 	defer jobStore.Close()
 	jobQueue := queue.New(env("REDIS_ADDR", "localhost:6379"), env("QUEUE_STREAM", "jobs"), env("WORKER_GROUP", "queuelens-workers"), "api")
 	defer jobQueue.Close()
+	if err := jobQueue.EnsureGroup(ctx); err != nil {
+		log.Fatal(err)
+	}
 	mux := http.NewServeMux()
 	service := &api{store: jobStore, queue: jobQueue}
 	mux.HandleFunc("GET /health", service.health)
@@ -54,6 +57,7 @@ func main() {
 	mux.HandleFunc("GET /api/jobs/{id}", service.get)
 	mux.HandleFunc("POST /api/jobs/{id}/retry", service.retry)
 	mux.HandleFunc("GET /api/stats", service.stats)
+	mux.HandleFunc("GET /api/queue", service.queueStats)
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 	server := &http.Server{Addr: ":8080", Handler: logging(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
 	server.Handler = logging(middleware.NewRateLimiter(60, time.Minute).Middleware(middleware.APIKey(env("API_KEY", ""))(mux)))
@@ -128,6 +132,14 @@ func (a *api) stats(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, stats)
 }
+func (a *api) queueStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := a.queue.Stats(r.Context())
+	if err != nil {
+		jsonError(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
 func (a *api) retry(w http.ResponseWriter, r *http.Request) {
 	job, err := a.store.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -160,8 +172,13 @@ func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestsTotal.Add(1)
 		started := time.Now()
+		requestID := r.Header.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = newID()
+		}
+		w.Header().Set("X-Request-ID", requestID)
 		next.ServeHTTP(w, r)
-		log.Printf("method=%s path=%s duration=%s", r.Method, r.URL.Path, time.Since(started))
+		log.Printf("request_id=%s method=%s path=%s duration=%s", requestID, r.Method, r.URL.Path, time.Since(started))
 	})
 }
 func env(key, fallback string) string {

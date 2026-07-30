@@ -8,9 +8,9 @@ function time(value) { return new Date(value).toLocaleString([], { month: 'short
 
 async function refresh() {
   try {
-    const [stats, result] = await Promise.all([api('/api/stats'), api(`/api/jobs${statusFilter ? `?status=${statusFilter}` : ''}`)]);
+    const [stats, result, queue] = await Promise.all([api('/api/stats'), api(`/api/jobs${statusFilter ? `?status=${statusFilter}` : ''}`), api('/api/queue')]);
     const statuses = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED'];
-    $('#stats').innerHTML = statuses.map(status => `<div class="stat"><label>${status.toLowerCase()}</label><strong>${stats[status] || 0}</strong></div>`).join('');
+    $('#stats').innerHTML = statuses.map(status => `<div class="stat"><label>${status.toLowerCase()}</label><strong>${stats[status] || 0}</strong></div>`).join('') + `<div class="stat"><label>queue pending</label><strong>${queue.pending}</strong></div>`;
     $('#jobs').innerHTML = (result.jobs || []).map(job => `<tr><td class="job-id">${escapeHtml(job.id.slice(0, 12))}…</td><td>${escapeHtml(job.type)}</td><td><span class="status ${job.status}">${job.status}</span></td><td>${job.attempts}</td><td>${time(job.created_at)}</td><td>${job.status === 'FAILED' ? `<button class="retry" data-retry="${job.id}">Retry ↗</button>` : ''}</td></tr>`).join('');
     $('#empty').hidden = result.jobs?.length > 0;
   } catch (error) { showToast(error.message); }

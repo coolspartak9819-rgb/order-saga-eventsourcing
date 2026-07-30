@@ -19,6 +19,9 @@ messages are visible from one place.
 - Docker Compose for API, worker, Redis and PostgreSQL.
 - Kafka lifecycle events for completed, retried and failed jobs;
 - Prometheus-style API metrics and a repeatable load script.
+- Redis stream length and consumer-group pending metrics in the dashboard;
+- `X-Request-ID` propagation from HTTP responses into API logs;
+- Prometheus scrape configuration.
 - Redis pending-message recovery with `XAUTOCLAIM`;
 - graceful shutdown for the HTTP API;
 - support for running multiple worker replicas.
@@ -42,6 +45,8 @@ docker compose up --build
 ```
 
 Open http://localhost:8083.
+
+Prometheus is available at http://localhost:9090.
 
 Create a normal job in the dashboard, or create a deterministic failure:
 

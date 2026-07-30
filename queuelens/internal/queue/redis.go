@@ -43,6 +43,11 @@ type Message struct {
 	Payload json.RawMessage
 }
 
+type Stats struct {
+	StreamLength int64 `json:"stream_length"`
+	Pending      int64 `json:"pending"`
+}
+
 func (q *Redis) Next(ctx context.Context) (Message, error) {
 	recovered, _, err := q.client.XAutoClaim(ctx, &redis.XAutoClaimArgs{Stream: q.stream, Group: q.group, Consumer: q.consumer, MinIdle: 30 * time.Second, Start: "0-0", Count: 1}).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
@@ -77,6 +82,22 @@ func parseMessage(entry redis.XMessage) (Message, error) {
 
 func (q *Redis) Ack(ctx context.Context, id string) error {
 	return q.client.XAck(ctx, q.stream, q.group, id).Err()
+}
+
+func (q *Redis) Stats(ctx context.Context) (Stats, error) {
+	length, err := q.client.XLen(ctx, q.stream).Result()
+	if err != nil {
+		return Stats{}, err
+	}
+	pending, err := q.client.XPending(ctx, q.stream, q.group).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return Stats{}, err
+	}
+	var pendingCount int64
+	if pending != nil {
+		pendingCount = pending.Count
+	}
+	return Stats{StreamLength: length, Pending: pendingCount}, nil
 }
 func (q *Redis) DeadLetter(ctx context.Context, message Message, reason string) error {
 	return q.client.XAdd(ctx, &redis.XAddArgs{Stream: q.stream + ".dlq", Values: map[string]any{"id": message.JobID, "type": message.Type, "payload": string(message.Payload), "reason": reason}}).Err()
