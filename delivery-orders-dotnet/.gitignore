@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+backend/data/
+frontend/node_modules/
+frontend/dist/
+.env
+*.db-shm
+*.db-wal
+.DS_Store
