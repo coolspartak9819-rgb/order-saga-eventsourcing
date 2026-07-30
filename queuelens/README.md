@@ -34,6 +34,7 @@ messages are visible from one place.
 - retention worker for removing old jobs and their audit history.
 - Kubernetes manifests with liveness/readiness probes and resource limits;
 - GitHub Actions checks for tests, vet and Compose validation.
+- GitHub Actions builds and publishes one GHCR image per service on `main`.
 
 ## Delivery guarantee
 

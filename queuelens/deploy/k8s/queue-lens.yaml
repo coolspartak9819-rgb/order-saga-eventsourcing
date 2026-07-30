@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/your-org/queuelens-api:latest
+          image: ghcr.io/coolspartak9819-rgb/queuelens-api:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -107,7 +107,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: ghcr.io/your-org/queuelens-worker:latest
+          image: ghcr.io/coolspartak9819-rgb/queuelens-worker:latest
           envFrom:
             - configMapRef:
                 name: queuelens-config
@@ -146,7 +146,7 @@ spec:
     spec:
       containers:
         - name: dispatcher
-          image: ghcr.io/your-org/queuelens-dispatcher:latest
+          image: ghcr.io/coolspartak9819-rgb/queuelens-dispatcher:latest
           envFrom:
             - configMapRef:
                 name: queuelens-config
@@ -177,7 +177,7 @@ spec:
     spec:
       containers:
         - name: audit
-          image: ghcr.io/your-org/queuelens-audit:latest
+          image: ghcr.io/coolspartak9819-rgb/queuelens-audit:latest
           envFrom:
             - configMapRef:
                 name: queuelens-config
@@ -211,7 +211,7 @@ spec:
     spec:
       containers:
         - name: retention
-          image: ghcr.io/your-org/queuelens-retention:latest
+          image: ghcr.io/coolspartak9819-rgb/queuelens-retention:latest
           envFrom:
             - configMapRef:
                 name: queuelens-config

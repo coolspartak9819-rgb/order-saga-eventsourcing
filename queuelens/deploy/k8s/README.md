@@ -7,7 +7,8 @@ The API has two probes:
 - `/health` is a liveness check and does not depend on external services;
 - `/ready` checks PostgreSQL and Redis before receiving traffic.
 
-Replace the image names and secret values before applying:
+The GitHub Actions workflow builds and publishes these images to GHCR after a
+push to `main`. Replace the secret values before applying:
 
 ```bash
 kubectl apply -f deploy/k8s/queue-lens.yaml
