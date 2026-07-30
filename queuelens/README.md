@@ -45,6 +45,28 @@ Failed deliveries use exponential backoff. A record that was published before
 the dispatcher crashed can be delivered again, so workers must remain
 idempotent. This is an intentional at-least-once delivery model.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    Client --> API[Go HTTP API]
+    API -->|transaction| DB[(PostgreSQL)]
+    DB -->|pending records| Dispatcher[Outbox dispatcher]
+    Dispatcher --> Redis[(Redis Streams)]
+    Redis --> Workers[Worker consumer group]
+    Workers --> DB
+    Workers --> Kafka[(Kafka)]
+    Kafka --> Audit[Audit consumer]
+    Audit --> DB
+    API --> Metrics[Prometheus metrics]
+    Metrics --> Grafana[Grafana dashboard]
+```
+
+The API owns the write transaction. Background services handle delivery,
+processing, audit persistence and retention independently. This keeps the
+request path short and makes failures visible instead of hiding them behind a
+best-effort background call.
+
 ## Run
 
 ```bash
@@ -125,3 +147,21 @@ the pending entry has been idle for 30 seconds.
 
 Click any job in the dashboard to inspect its Kafka-backed event timeline,
 including attempts, errors and event payloads.
+
+## Production Notes
+
+For a production deployment I would:
+
+- run PostgreSQL, Redis and Kafka as managed or replicated services;
+- store database credentials and API keys in a secret manager;
+- replace the local Kafka setup with a multi-broker cluster and explicit topic
+  retention settings;
+- configure Alertmanager or an equivalent notification channel for the rules
+  in `observability/alerts.yml`;
+- add distributed tracing and request-level latency histograms;
+- pin image digests and use signed images in the Kubernetes deployment;
+- test restore procedures for PostgreSQL and replay procedures for Kafka.
+
+The repository includes the application workloads and operational defaults;
+stateful infrastructure is intentionally kept in Docker Compose for local
+development rather than presented as production-ready single-node storage.

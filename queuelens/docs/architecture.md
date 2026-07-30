@@ -26,3 +26,8 @@ Workers use a Redis consumer group. New messages are read with `XREADGROUP`;
 messages left pending by a crashed worker are recovered with `XAUTOCLAIM` after
 30 seconds of inactivity. This prevents a single worker failure from silently
 stopping a job.
+
+The Kubernetes version runs two API replicas and three worker replicas. API
+traffic is sent only to pods that pass `/ready`; `/health` remains a dependency
+independent liveness check. Dispatcher, audit and retention run as single
+coordination workloads.
