@@ -27,6 +27,7 @@ try {
   console.log('EdgeGate e2e failover check passed');
 } catch (error) {
   console.error(`EdgeGate e2e failed: ${error.stack || error.message}`);
+  console.error(`::error title=EdgeGate e2e failed::${githubEscape(error.message)}`);
   safeDocker('compose', 'ps');
   safeDocker('compose', 'logs', '--no-color', 'edgegate', 'backend-a', 'backend-b', 'redis');
   process.exitCode = 1;
@@ -81,4 +82,8 @@ function assert(condition, message) {
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function githubEscape(value) {
+  return String(value).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
 }
