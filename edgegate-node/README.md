@@ -15,6 +15,7 @@ of hiding them behind a gateway framework.
 - request WAF for SQL injection, XSS and path traversal signatures;
 - request body inspection with a configurable size limit;
 - dynamic middleware modules loaded with `import()`;
+- route-level API key and JWT HS256 authorization policies;
 - configuration and plugin hot reload without process restart;
 - request IDs and structured JSON access logs;
 - graceful shutdown and health/readiness endpoints;
@@ -119,6 +120,36 @@ Register the module in a route:
 
 Changing the configuration or plugin module rebuilds the middleware chain on
 the next configuration reload. The process itself stays online.
+
+Built-in authorization plugins read secrets from environment variables. API
+keys are compared with constant-time equality, while JWT verification enforces
+the `HS256` algorithm, signature, `exp`, `nbf`, issuer, audience and configured
+claims.
+
+Protect a route with API keys:
+
+```json
+{
+  "name": "api-key",
+  "options": { "keysEnv": "EDGEGATE_API_KEYS", "header": "x-api-key" }
+}
+```
+
+Protect a route with JWT and a required role:
+
+```json
+{
+  "name": "jwt-hs256",
+  "options": {
+    "secretEnv": "EDGEGATE_JWT_SECRET",
+    "issuer": "identity-service",
+    "audience": "edgegate",
+    "requiredClaims": { "roles": ["admin"] }
+  }
+}
+```
+
+Secrets are never stored in the route configuration or committed example.
 
 ## HTTP/2
 

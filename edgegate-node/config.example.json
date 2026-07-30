@@ -15,6 +15,18 @@
       "waf": { "enabled": true, "maxBodyBytes": 1048576 },
       "healthCheck": { "enabled": true, "path": "/healthz", "intervalMs": 5000, "timeoutMs": 1000 },
       "circuitBreaker": { "failureThreshold": 3, "cooldownMs": 10000 }
+    },
+    {
+      "path": "/admin",
+      "backends": ["http://backend-a:8080", "http://backend-b:8080"],
+      "strategy": "round_robin",
+      "plugins": [
+        "request-id",
+        { "name": "api-key", "options": { "keysEnv": "EDGEGATE_API_KEYS" } },
+        "access-log"
+      ],
+      "healthCheck": { "enabled": true, "path": "/healthz", "intervalMs": 5000, "timeoutMs": 1000 },
+      "circuitBreaker": { "failureThreshold": 3, "cooldownMs": 10000 }
     }
   ]
 }
