@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, ArrowRight, CalendarDays, ChevronLeft, CirclePlus, ClipboardList, LayoutGrid, Package, Radio, Rows3, Search, Truck, X } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronLeft, CirclePlus, ClipboardList, Download, LayoutGrid, Package, Rows3, Search, Truck, X } from 'lucide-react';
 import './styles.css';
 
 const apiBase = import.meta.env.VITE_API_URL || '';
@@ -41,6 +41,17 @@ function App() {
     try { setSelected(await api(`/api/orders/${id}`)); setError(''); } catch (err) { setError(err.message); }
   };
 
+  const exportOrders = () => {
+    const header = ['Номер', 'Город отправителя', 'Город получателя', 'Дата забора', 'Вес, кг', 'Статус'];
+    const rows = orders.map(order => [order.orderNumber, order.senderCity, order.recipientCity, order.pickupDate, order.weightKg, statusLabel(order.status)]);
+    const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(';')).join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+    link.download = `реестр-заказов-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   return <div className="app-shell">
     <header className="topbar">
       <div className="brand"><div className="brand-mark"><Truck size={19} /></div><div><strong>ParcelPilot</strong><span>диспетчерская</span></div></div>
@@ -50,7 +61,7 @@ function App() {
       <section className="page-heading"><div><p className="eyebrow">СЕКТОР 07 / ЦЕНТР УПРАВЛЕНИЯ</p><h1>Заказы на доставку</h1><p className="subtitle">Мониторинг маршрутов и управление грузами в реальном времени.</p></div><button className="primary-button" onClick={() => setFormOpen(true)}><CirclePlus size={18} /> Новый заказ</button></section>
       <section className="stats-grid"><Stat label="Активные заказы" value={stats.total} icon={<ClipboardList />} accent="blue" /><Stat label="Забор сегодня" value={stats.today} icon={<CalendarDays />} accent="violet" /><Stat label="Общий вес" value={`${stats.weight.toFixed(1)} кг`} icon={<Package />} accent="orange" /></section>
       <section className="orders-section">
-        <div className="section-toolbar"><div><h2>Реестр отправлений</h2><span className="muted">{orders.length} объектов в текущем секторе</span></div><div className="filters"><label className="search-box"><Search size={16} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск номера или города" /></label><select value={status} onChange={event => setStatus(event.target.value)}><option value="">Все статусы</option><option value="Created">Создан</option><option value="Accepted">Принят</option><option value="InTransit">В пути</option><option value="Delivered">Доставлен</option><option value="Cancelled">Отменён</option></select><div className="view-toggle" aria-label="Режим отображения"><button className={viewMode === 'table' ? 'active' : ''} title="Таблица" onClick={() => setViewMode('table')}><Rows3 size={16} /></button><button className={viewMode === 'cards' ? 'active' : ''} title="Карточки" onClick={() => setViewMode('cards')}><LayoutGrid size={16} /></button></div></div></div>
+        <div className="section-toolbar"><div><h2>Реестр отправлений</h2><span className="muted">{orders.length} объектов в текущем секторе</span></div><div className="filters"><label className="search-box"><Search size={16} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск номера или города" /></label><select value={status} onChange={event => setStatus(event.target.value)}><option value="">Все статусы</option><option value="Created">Создан</option><option value="Accepted">Принят</option><option value="InTransit">В пути</option><option value="Delivered">Доставлен</option><option value="Cancelled">Отменён</option></select><button className="export-button" onClick={exportOrders} title="Скачать текущий реестр в CSV"><Download size={15} /> Экспорт</button><div className="view-toggle" aria-label="Режим отображения"><button className={viewMode === 'table' ? 'active' : ''} title="Таблица" onClick={() => setViewMode('table')}><Rows3 size={16} /></button><button className={viewMode === 'cards' ? 'active' : ''} title="Карточки" onClick={() => setViewMode('cards')}><LayoutGrid size={16} /></button></div></div></div>
         {error && <div className="error-banner">{error}</div>}
         {loading ? <div className="empty-state">Синхронизация реестра...</div> : orders.length === 0 ? <div className="empty-state"><Package size={30} /><strong>Реестр пуст</strong><span>Создайте первый маршрут, чтобы начать работу.</span><button className="secondary-button" onClick={() => setFormOpen(true)}>Создать заказ</button></div> : viewMode === 'table' ? <div className="table-wrap"><table><thead><tr><th>Заказ</th><th>Маршрут</th><th>Забор</th><th>Вес</th><th>Статус</th><th /></tr></thead><tbody>{orders.map(order => <tr key={order.id} onClick={() => openOrder(order.id)}><td><strong className="order-number">{order.orderNumber}</strong><small>{formatDate(order.createdAt)}</small></td><td><div className="route-cell"><span>{order.senderCity}</span><ArrowRight size={14} /><span>{order.recipientCity}</span></div></td><td>{formatDateOnly(order.pickupDate)}</td><td>{order.weightKg} кг</td><td><Status status={order.status} /></td><td><ChevronLeft className="row-chevron" size={17} /></td></tr>)}</tbody></table></div> : <div className="order-cards">{orders.map(order => <OrderCard key={order.id} order={order} onClick={() => openOrder(order.id)} />)}</div>}
       </section>

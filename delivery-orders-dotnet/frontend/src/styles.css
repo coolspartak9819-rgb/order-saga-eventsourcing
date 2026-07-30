@@ -166,4 +166,16 @@ td small { color: #587784; }
 .timeline-item strong { color: #7e9fa9; }
 .timeline-item.active i { border-color: #29f2e4; background: #29f2e4; box-shadow: 0 0 0 3px #29f2e422, 0 0 11px #29f2e4; }
 .timeline-item.active strong { color: #dcf7f2; }
+.app-shell { position: relative; overflow: hidden; }
+.app-shell::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url('/cargo-night.jpg') center / cover no-repeat; opacity: .13; filter: saturate(1.5) hue-rotate(125deg) contrast(1.2); mix-blend-mode: screen; }
+.topbar, .workspace { position: relative; z-index: 1; }
+.workspace::before { content: 'FREIGHT // NETWORK 07'; position: absolute; top: 15px; right: 0; color: #29f2e422; font: 10px monospace; letter-spacing: 2px; }
+.export-button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border: 1px solid #244352; border-radius: 6px; color: #79aab3; background: #09121f; font: 10px monospace; letter-spacing: .4px; }
+.export-button:hover { border-color: #ff3cac; color: #ff8dcd; box-shadow: 0 0 14px #ff3cac35; }
+.icon-button, .view-toggle button, .primary-button, .secondary-button, .export-button, .stat-icon { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, color .18s ease, background .18s ease; }
+.icon-button:hover, .view-toggle button:hover, .primary-button:hover, .secondary-button:hover, .export-button:hover { transform: translateY(-2px); }
+.icon-button:hover svg, .view-toggle button:hover svg, .primary-button:hover svg, .secondary-button:hover svg, .export-button:hover svg { filter: drop-shadow(0 0 6px currentColor); transform: translateY(-1px); }
+.stat-card:hover .stat-icon { transform: translateY(-3px); box-shadow: 0 0 15px currentColor; }
+.brand-mark:hover { transform: translateY(-2px); box-shadow: 0 0 18px #29f2e4aa; }
+@media (max-width: 760px) { .workspace::before { display: none; } .export-button { font-size: 0; width: 40px; justify-content: center; padding: 0; } }
 @media (max-width: 760px) { .filters { flex-wrap: wrap; } .view-toggle { margin-left: auto; } }
