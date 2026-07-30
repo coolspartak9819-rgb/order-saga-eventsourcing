@@ -98,13 +98,13 @@ app.Run();
 static Dictionary<string, string[]> Validate(CreateOrderRequest request)
 {
     var errors = new Dictionary<string, string[]>();
-    AddIfEmpty(errors, nameof(request.SenderCity), request.SenderCity, "Sender city is required.");
-    AddIfEmpty(errors, nameof(request.SenderAddress), request.SenderAddress, "Sender address is required.");
-    AddIfEmpty(errors, nameof(request.RecipientCity), request.RecipientCity, "Recipient city is required.");
-    AddIfEmpty(errors, nameof(request.RecipientAddress), request.RecipientAddress, "Recipient address is required.");
-    if (request.WeightKg <= 0) errors[nameof(request.WeightKg)] = ["Weight must be greater than zero."];
-    if (request.WeightKg > 10_000) errors[nameof(request.WeightKg)] = ["Weight must not exceed 10,000 kg."];
-    if (request.PickupDate < DateOnly.FromDateTime(DateTime.UtcNow.Date)) errors[nameof(request.PickupDate)] = ["Pickup date cannot be in the past."];
+    AddIfEmpty(errors, nameof(request.SenderCity), request.SenderCity, "Укажите город отправителя.");
+    AddIfEmpty(errors, nameof(request.SenderAddress), request.SenderAddress, "Укажите адрес отправителя.");
+    AddIfEmpty(errors, nameof(request.RecipientCity), request.RecipientCity, "Укажите город получателя.");
+    AddIfEmpty(errors, nameof(request.RecipientAddress), request.RecipientAddress, "Укажите адрес получателя.");
+    if (request.WeightKg <= 0) errors[nameof(request.WeightKg)] = ["Вес должен быть больше нуля."];
+    if (request.WeightKg > 10_000) errors[nameof(request.WeightKg)] = ["Вес не может превышать 10 000 кг."];
+    if (request.PickupDate < DateOnly.FromDateTime(DateTime.UtcNow.Date)) errors[nameof(request.PickupDate)] = ["Дата забора не может быть в прошлом."];
     return errors;
 }
 
