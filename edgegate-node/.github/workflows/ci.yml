@@ -19,3 +19,15 @@ jobs:
       - run: npm run check
       - run: docker compose config -q
       - run: docker build -t edgegate-node:ci .
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run e2e

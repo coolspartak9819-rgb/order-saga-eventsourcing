@@ -21,6 +21,8 @@ of hiding them behind a gateway framework.
 - Prometheus counters, backend gauges and request latency histograms;
 - alert rules for gateway availability, upstream health and p95 latency;
 - repeatable Node.js load test with RPS and p50/p95/p99 reporting;
+- provisioned Grafana dashboard for traffic, latency and backend state;
+- Docker-based e2e failover scenario that stops one upstream during traffic;
 - Docker Compose demo stack and GitHub Actions CI.
 
 ## Architecture
@@ -70,7 +72,9 @@ curl -i 'http://localhost:8080/api/items?q=union%20select%20password%20from%20us
 Expected response: `403 Forbidden`.
 
 Prometheus metrics are available at `http://localhost:8080/metrics` and the
-local Prometheus UI is exposed at `http://localhost:9090`.
+local Prometheus UI is exposed at `http://localhost:9090`. Grafana is available
+at `http://localhost:3000` with the provisioned EdgeGate dashboard
+(`admin` / `admin`).
 
 Run a repeatable load sample:
 
@@ -80,6 +84,16 @@ REQUESTS=5000 CONCURRENCY=50 npm run load
 
 The script reports requests per second, response status distribution and
 p50/p95/p99 latency. Set `TARGET_URL` to test another route.
+
+Run the full failover check with Docker running:
+
+```bash
+npm run e2e
+```
+
+The scenario starts the stack, sends a baseline request, stops `backend-a`,
+waits for active health checking to remove it and verifies that subsequent
+traffic is served only by `backend-b`. The stack is cleaned up afterward.
 
 ## Dynamic Plugins
 
@@ -124,8 +138,8 @@ npm run check
 docker compose config -q
 ```
 
-The next operational layer is a Grafana dashboard and an end-to-end failure
-scenario that demonstrates health-check removal and circuit recovery.
+The next layer is authentication policy, TLS certificate automation and
+Kubernetes deployment manifests.
 
 ## WAF Scope
 

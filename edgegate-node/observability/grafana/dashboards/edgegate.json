@@ -1,0 +1,44 @@
+{
+  "title": "EdgeGate Node Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request rate by route",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum by (route) (rate(edgegate_requests_total[5m]))", "legendFormat": "{{route}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, route) (rate(edgegate_request_duration_seconds_bucket[5m])))", "legendFormat": "{{route}}", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Healthy backends",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(edgegate_backend_healthy)", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Open circuits",
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+      "targets": [{"expr": "sum(edgegate_circuit_open)", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "WAF blocks",
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+      "targets": [{"expr": "sum(edgegate_waf_blocks_total)", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Active upstream connections",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14},
+      "targets": [{"expr": "edgegate_backend_active_connections", "legendFormat": "{{backend}}", "refId": "A"}]
+    }
+  ]
+}

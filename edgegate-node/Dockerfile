@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY src ./src
 COPY plugins ./plugins
+COPY demo ./demo
 COPY config.example.json ./config.json
 USER node
 EXPOSE 8080

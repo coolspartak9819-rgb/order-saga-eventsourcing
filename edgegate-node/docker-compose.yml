@@ -9,6 +9,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      backend-a:
+        condition: service_healthy
+      backend-b:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -19,12 +23,26 @@ services:
       retries: 10
 
   backend-a:
-    image: hashicorp/http-echo:1.0
-    command: ["-listen=:8080", "-text=backend-a"]
+    build: .
+    command: ["node", "demo/upstream.js"]
+    environment:
+      INSTANCE_NAME: backend-a
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
 
   backend-b:
-    image: hashicorp/http-echo:1.0
-    command: ["-listen=:8080", "-text=backend-b"]
+    build: .
+    command: ["node", "demo/upstream.js"]
+    environment:
+      INSTANCE_NAME: backend-b
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
 
   prometheus:
     image: prom/prometheus:v2.53.0
@@ -35,3 +53,17 @@ services:
       - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
     depends_on:
       - edgegate
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
