@@ -1,0 +1,22 @@
+{
+  "listen": ":8080",
+  "redis_addr": "redis:6379",
+  "routes": [
+    {
+      "path": "/api",
+      "backends": [
+        "http://backend-a:8080",
+        "http://backend-b:8080"
+      ],
+      "strategy": "least_connections",
+      "plugins": ["request-id", "access-log"],
+      "rate_limit": {
+        "requests_per_second": 20,
+        "burst": 40
+      },
+      "waf": {
+        "enabled": true
+      }
+    }
+  ]
+}
