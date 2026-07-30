@@ -1,0 +1,18 @@
+{
+  "listen": { "host": "0.0.0.0", "port": 8080 },
+  "redisUrl": "redis://redis:6379",
+  "routes": [
+    {
+      "path": "/api",
+      "backends": ["http://backend-a:8080", "http://backend-b:8080"],
+      "strategy": "least_connections",
+      "plugins": [
+        "request-id",
+        "access-log",
+        { "module": "./plugins/add-header.js", "options": { "name": "x-edgegate", "value": "node-22" } }
+      ],
+      "rateLimit": { "requestsPerSecond": 20, "burst": 40 },
+      "waf": { "enabled": true, "maxBodyBytes": 1048576 }
+    }
+  ]
+}

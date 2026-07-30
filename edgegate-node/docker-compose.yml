@@ -1,0 +1,27 @@
+services:
+  edgegate:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.example.json:/app/config.json:ro
+      - ./plugins:/app/plugins:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend-a:
+    image: hashicorp/http-echo:1.0
+    command: ["-listen=:8080", "-text=backend-a"]
+
+  backend-b:
+    image: hashicorp/http-echo:1.0
+    command: ["-listen=:8080", "-text=backend-b"]
