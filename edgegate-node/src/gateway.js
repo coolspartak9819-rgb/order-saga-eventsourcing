@@ -106,6 +106,7 @@ export class Gateway {
         'x-forwarded-proto': context.request.socket.encrypted ? 'https' : 'http'
       };
       const upstream = transport.request(target, { method: context.request.method, headers }, upstreamResponse => {
+        clearTimeout(hardTimeout);
         this.metrics.recordUpstream(backend.url.origin, upstreamResponse.statusCode ?? 502);
         if ((upstreamResponse.statusCode ?? 500) >= 500) failureOnce();
         else successOnce();
@@ -114,8 +115,8 @@ export class Gateway {
         upstreamResponse.on('end', () => { releaseOnce(); resolve(); });
         upstreamResponse.on('error', error => { failureOnce(); releaseOnce(); reject(error); });
       });
-      upstream.setTimeout(10_000, () => upstream.destroy(new Error('upstream timeout')));
-      upstream.on('error', error => { failureOnce(); releaseOnce(); reject(error); });
+      const hardTimeout = setTimeout(() => upstream.destroy(new Error('upstream timeout')), 10_000);
+      upstream.on('error', error => { clearTimeout(hardTimeout); failureOnce(); releaseOnce(); reject(error); });
       context.response.on('close', releaseOnce);
       if (context.body) upstream.end(context.body);
       else context.request.pipe(upstream);

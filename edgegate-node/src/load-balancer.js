@@ -81,16 +81,21 @@ export class LoadBalancer {
     return new Promise(resolve => {
       const target = new URL(this.healthCheck.path, backend.url);
       const transport = target.protocol === 'https:' ? https : http;
-      const request = transport.request(target, { method: 'GET' }, response => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.healthCheck.timeoutMs);
+      let finished = false;
+      const finish = healthy => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        backend.healthy = healthy;
+        resolve(healthy);
+      };
+      const request = transport.request(target, { method: 'GET', signal: controller.signal }, response => {
         response.resume();
-        backend.healthy = response.statusCode >= 200 && response.statusCode < 400;
-        resolve(backend.healthy);
+        finish(response.statusCode >= 200 && response.statusCode < 400);
       });
-      request.setTimeout(this.healthCheck.timeoutMs, () => request.destroy(new Error('health check timeout')));
-      request.on('error', () => {
-        backend.healthy = false;
-        resolve(false);
-      });
+      request.on('error', () => finish(false));
       request.end();
     });
   }
