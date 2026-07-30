@@ -25,3 +25,13 @@ services:
   backend-b:
     image: hashicorp/http-echo:1.0
     command: ["-listen=:8080", "-text=backend-b"]
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+    depends_on:
+      - edgegate

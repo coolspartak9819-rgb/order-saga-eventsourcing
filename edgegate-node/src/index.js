@@ -18,6 +18,10 @@ await gateway.applyConfig(config, configPath);
 const handler = (request, response) => {
   if (request.url === '/healthz') return gateway.send(response, 200, 'ok');
   if (request.url === '/readyz') return redis.isReady ? gateway.send(response, 200, 'ready') : gateway.send(response, 503, 'not ready');
+  if (request.url === '/metrics') {
+    response.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' });
+    return response.end(gateway.metrics.render(gateway.routes));
+  }
   gateway.handle(request, response);
 };
 

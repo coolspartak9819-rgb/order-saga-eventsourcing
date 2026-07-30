@@ -1,0 +1,26 @@
+groups:
+  - name: edgegate
+    rules:
+      - alert: EdgeGateDown
+        expr: up{job="edgegate-node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: EdgeGate is unavailable
+
+      - alert: EdgeGateNoHealthyBackends
+        expr: sum by (route) (edgegate_backend_healthy) == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: Route has no healthy upstream backends
+
+      - alert: EdgeGateHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le, route) (rate(edgegate_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: EdgeGate p95 latency is above one second

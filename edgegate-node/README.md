@@ -18,6 +18,9 @@ of hiding them behind a gateway framework.
 - configuration and plugin hot reload without process restart;
 - request IDs and structured JSON access logs;
 - graceful shutdown and health/readiness endpoints;
+- Prometheus counters, backend gauges and request latency histograms;
+- alert rules for gateway availability, upstream health and p95 latency;
+- repeatable Node.js load test with RPS and p50/p95/p99 reporting;
 - Docker Compose demo stack and GitHub Actions CI.
 
 ## Architecture
@@ -66,6 +69,18 @@ curl -i 'http://localhost:8080/api/items?q=union%20select%20password%20from%20us
 
 Expected response: `403 Forbidden`.
 
+Prometheus metrics are available at `http://localhost:8080/metrics` and the
+local Prometheus UI is exposed at `http://localhost:9090`.
+
+Run a repeatable load sample:
+
+```bash
+REQUESTS=5000 CONCURRENCY=50 npm run load
+```
+
+The script reports requests per second, response status distribution and
+p50/p95/p99 latency. Set `TARGET_URL` to test another route.
+
 ## Dynamic Plugins
 
 A plugin exports a middleware factory:
@@ -109,8 +124,8 @@ npm run check
 docker compose config -q
 ```
 
-The next operational layer is Prometheus metrics and repeatable load-test
-reports for comparing the balancing strategies.
+The next operational layer is a Grafana dashboard and an end-to-end failure
+scenario that demonstrates health-check removal and circuit recovery.
 
 ## WAF Scope
 

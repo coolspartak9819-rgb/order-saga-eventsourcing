@@ -11,7 +11,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/gateway.js && node --check src/plugins.js && node --check src/rate-limiter.js"
+    "check": "node --check src/index.js && node --check src/gateway.js && node --check src/plugins.js && node --check src/rate-limiter.js && node --check src/metrics.js && node --check scripts/load.js",
+    "load": "node scripts/load.js"
   },
   "dependencies": {
     "redis": "^4.7.0"

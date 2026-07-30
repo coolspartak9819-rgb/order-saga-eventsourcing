@@ -5,11 +5,13 @@ import { LoadBalancer } from './load-balancer.js';
 import { WAF, readBody } from './waf.js';
 import { RedisTokenBucket } from './rate-limiter.js';
 import { compose, resolvePlugins } from './plugins.js';
+import { Metrics } from './metrics.js';
 
 export class Gateway {
   constructor(redis) {
     this.redis = redis;
     this.routes = [];
+    this.metrics = new Metrics();
   }
 
   async applyConfig(config, configPath) {
@@ -29,6 +31,7 @@ export class Gateway {
         context.body = await readBody(context.request, routeConfig.waf.maxBodyBytes);
         const rule = waf.inspect({ url: context.request.url, headers: context.request.headers, body: context.body.toString('utf8') });
         if (rule) {
+          this.metrics.recordWAFBlock(rule);
           console.warn(JSON.stringify({ level: 'warn', event: 'waf_block', rule, path: context.request.url }));
           return this.send(context.response, 403, 'request blocked by WAF');
         }
@@ -36,7 +39,10 @@ export class Gateway {
       });
       if (limiter) middleware.push(async (context, next) => {
         const key = context.request.headers['x-user-id'] || context.request.socket.remoteAddress || 'unknown';
-        if (!await limiter.allow(key)) return this.send(context.response, 429, 'rate limit exceeded');
+        if (!await limiter.allow(key)) {
+          this.metrics.recordRateLimit(routeConfig.path);
+          return this.send(context.response, 429, 'rate limit exceeded');
+        }
         await next();
       });
       middleware.push(...plugins);
@@ -52,8 +58,13 @@ export class Gateway {
     const pathname = new URL(request.url, 'http://edgegate.local').pathname;
     const route = this.routes.find(candidate => matchesPrefix(pathname, candidate.path));
     if (!route) return this.send(response, 404, 'route not found');
+    const started = process.hrtime.bigint();
+    response.once('finish', () => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      this.metrics.recordRequest(route.path, response.statusCode, seconds);
+    });
     try {
-      await route.handler({ request, response, body: null, backend: null });
+      await route.handler({ request, response, body: null, backend: null, routePath: route.path });
     } catch (error) {
       console.error(JSON.stringify({ level: 'error', event: 'gateway_error', message: error.message }));
       if (!response.headersSent) this.send(response, error.statusCode || 503, 'gateway unavailable');
@@ -95,6 +106,7 @@ export class Gateway {
         'x-forwarded-proto': context.request.socket.encrypted ? 'https' : 'http'
       };
       const upstream = transport.request(target, { method: context.request.method, headers }, upstreamResponse => {
+        this.metrics.recordUpstream(backend.url.origin, upstreamResponse.statusCode ?? 502);
         if ((upstreamResponse.statusCode ?? 500) >= 500) failureOnce();
         else successOnce();
         context.response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
