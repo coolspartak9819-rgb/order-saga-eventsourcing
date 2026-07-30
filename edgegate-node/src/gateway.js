@@ -12,6 +12,7 @@ export class Gateway {
     this.redis = redis;
     this.routes = [];
     this.metrics = new Metrics();
+    this.wafPolicy = { mode: 'block', rules: [], disabledDefaultRules: [] };
   }
 
   async applyConfig(config, configPath) {
@@ -21,19 +22,21 @@ export class Gateway {
         healthCheck: routeConfig.healthCheck,
         circuitBreaker: routeConfig.circuitBreaker
       });
-      const waf = routeConfig.waf?.enabled ? new WAF(routeConfig.waf.extraRules) : null;
+      const runtime = {
+        waf: routeConfig.waf?.enabled ? this.createWAF(routeConfig.waf.extraRules) : null
+      };
       const limiter = routeConfig.rateLimit ? new RedisTokenBucket(this.redis, routeConfig.rateLimit) : null;
       const plugins = await resolvePlugins(routeConfig.plugins, dirname(configPath));
 
       const terminal = async context => this.proxy(context, balancer);
       const middleware = [];
-      if (waf) middleware.push(async (context, next) => {
+      if (runtime.waf) middleware.push(async (context, next) => {
         context.body = await readBody(context.request, routeConfig.waf.maxBodyBytes);
-        const rule = waf.inspect({ url: context.request.url, headers: context.request.headers, body: context.body.toString('utf8') });
+        const rule = runtime.waf.inspect({ url: context.request.url, headers: context.request.headers, body: context.body.toString('utf8') });
         if (rule) {
-          this.metrics.recordWAFBlock(rule);
-          console.warn(JSON.stringify({ level: 'warn', event: 'waf_block', rule, path: context.request.url }));
-          return this.send(context.response, 403, 'request blocked by WAF');
+          this.metrics.recordWAFDetection(rule, runtime.waf.mode);
+          console.warn(JSON.stringify({ level: 'warn', event: 'waf_detection', mode: runtime.waf.mode, rule, path: context.request.url }));
+          if (runtime.waf.mode === 'block') return this.send(context.response, 403, 'request blocked by WAF');
         }
         await next();
       });
@@ -46,12 +49,33 @@ export class Gateway {
         await next();
       });
       middleware.push(...plugins);
-      routes.push({ path: routeConfig.path, handler: compose(middleware, terminal), balancer, stopHealthChecks: null });
+      Object.assign(runtime, {
+        path: routeConfig.path,
+        handler: compose(middleware, terminal),
+        balancer,
+        wafExtraRules: routeConfig.waf?.extraRules ?? [],
+        stopHealthChecks: null
+      });
+      routes.push(runtime);
     }
     routes.sort((a, b) => b.path.length - a.path.length);
     for (const route of routes) route.stopHealthChecks = route.balancer.startHealthChecks();
     for (const route of this.routes) route.stopHealthChecks?.();
     this.routes = routes;
+  }
+
+  applyWAFPolicy(policy) {
+    this.wafPolicy = policy;
+    for (const route of this.routes) {
+      if (route.waf) route.waf = this.createWAF(route.wafExtraRules);
+    }
+  }
+
+  createWAF(extraRules = []) {
+    return new WAF({
+      ...this.wafPolicy,
+      rules: [...(this.wafPolicy.rules ?? []), ...extraRules]
+    });
   }
 
   async handle(request, response) {

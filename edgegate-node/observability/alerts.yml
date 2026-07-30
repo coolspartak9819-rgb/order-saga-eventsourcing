@@ -24,3 +24,11 @@ groups:
           severity: warning
         annotations:
           summary: EdgeGate p95 latency is above one second
+
+      - alert: EdgeGateWAFDetectionSurge
+        expr: sum(rate(edgegate_waf_detections_total[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: WAF detections exceed five requests per second

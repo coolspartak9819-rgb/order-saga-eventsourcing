@@ -4,7 +4,8 @@ export class Metrics {
   constructor() {
     this.requests = new Map();
     this.upstreams = new Map();
-    this.wafBlocks = new Map();
+    this.wafDetections = new Map();
+    this.wafFalsePositives = new Map();
     this.rateLimited = new Map();
     this.configReloads = new Map();
     this.durations = new Map();
@@ -28,7 +29,8 @@ export class Metrics {
     increment(this.upstreams, labels({ backend, status: statusCode }));
   }
 
-  recordWAFBlock(rule) { increment(this.wafBlocks, labels({ rule })); }
+  recordWAFDetection(rule, mode) { increment(this.wafDetections, labels({ rule, mode })); }
+  recordWAFFalsePositive(rule) { increment(this.wafFalsePositives, labels({ rule })); }
   recordRateLimit(route) { increment(this.rateLimited, labels({ route })); }
   recordConfigReload(status) { increment(this.configReloads, labels({ status })); }
 
@@ -40,9 +42,12 @@ export class Metrics {
       '# HELP edgegate_upstream_requests_total Upstream responses by backend and status.',
       '# TYPE edgegate_upstream_requests_total counter',
       ...renderMap('edgegate_upstream_requests_total', this.upstreams),
-      '# HELP edgegate_waf_blocks_total Requests blocked by WAF rule.',
-      '# TYPE edgegate_waf_blocks_total counter',
-      ...renderMap('edgegate_waf_blocks_total', this.wafBlocks),
+      '# HELP edgegate_waf_detections_total Requests detected by WAF rule and policy mode.',
+      '# TYPE edgegate_waf_detections_total counter',
+      ...renderMap('edgegate_waf_detections_total', this.wafDetections),
+      '# HELP edgegate_waf_false_positives_total WAF detections marked as false positives.',
+      '# TYPE edgegate_waf_false_positives_total counter',
+      ...renderMap('edgegate_waf_false_positives_total', this.wafFalsePositives),
       '# HELP edgegate_rate_limited_total Requests rejected by rate limiting.',
       '# TYPE edgegate_rate_limited_total counter',
       ...renderMap('edgegate_rate_limited_total', this.rateLimited),

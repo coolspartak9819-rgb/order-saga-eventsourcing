@@ -19,12 +19,37 @@ try {
   const updatedConfig = await updateResponse.json();
   assert(updatedConfig.version === currentConfig.version + 1, 'config version did not advance');
 
+  const currentWAF = await fetchJSON(`${gatewayUrl}/control/waf`, { headers: controlHeaders() });
+  const monitorVersion = await updateWAF(currentWAF.version, {
+    mode: 'monitor',
+    rules: [{ id: 'e2e-scanner', source: 'masscan' }]
+  });
+  await waitForStatus(`${gatewayUrl}/api/waf?q=masscan`, 200, 10_000);
+
+  const blockVersion = await updateWAF(monitorVersion, {
+    mode: 'block',
+    rules: [{ id: 'e2e-scanner', source: 'masscan' }]
+  });
+  await waitForStatus(`${gatewayUrl}/api/waf?q=masscan`, 403, 10_000);
+  const history = await fetchJSON(`${gatewayUrl}/control/waf/history`, { headers: controlHeaders() });
+  assert(history.entries.length >= 2, 'WAF audit history is incomplete');
+
+  const rollbackResponse = await fetch(`${gatewayUrl}/control/waf/rollback`, {
+    method: 'POST',
+    headers: controlHeaders(),
+    body: JSON.stringify({ expectedVersion: blockVersion, targetVersion: monitorVersion })
+  });
+  assert(rollbackResponse.status === 202, `WAF rollback returned ${rollbackResponse.status}`);
+  await waitForStatus(`${gatewayUrl}/api/waf?q=masscan`, 200, 10_000);
+
   docker('compose', 'stop', 'backend-a');
   await waitForFailover(10, 30_000);
 
   const metrics = await fetch(`${gatewayUrl}/metrics`).then(response => response.text());
   assert(metrics.includes('edgegate_backend_healthy'), 'backend health metric is missing');
-  console.log('EdgeGate e2e failover check passed');
+  assert(metrics.includes('edgegate_waf_detections_total{rule="e2e-scanner",mode="monitor"}'), 'WAF monitor metric is missing');
+  assert(metrics.includes('edgegate_waf_detections_total{rule="e2e-scanner",mode="block"}'), 'WAF block metric is missing');
+  console.log('EdgeGate e2e WAF policy and failover checks passed');
 } catch (error) {
   console.error(`EdgeGate e2e failed: ${error.stack || error.message}`);
   console.error(`::error title=EdgeGate e2e failed::${githubEscape(error.message)}`);
@@ -47,6 +72,24 @@ async function fetchJSON(url, options) {
   const response = await fetch(url, options);
   assert(response.ok, `${url} returned ${response.status}`);
   return response.json();
+}
+
+async function updateWAF(expectedVersion, policy) {
+  const response = await fetch(`${gatewayUrl}/control/waf`, {
+    method: 'PUT',
+    headers: controlHeaders(),
+    body: JSON.stringify({ expectedVersion, policy })
+  });
+  assert(response.status === 202, `WAF update returned ${response.status}`);
+  return (await response.json()).version;
+}
+
+function controlHeaders() {
+  return {
+    'content-type': 'application/json',
+    'x-control-key': 'demo-control-key',
+    'x-actor': 'e2e'
+  };
 }
 
 async function waitFor(url, timeoutMs) {
@@ -74,6 +117,17 @@ async function waitForFailover(requiredSuccesses, timeoutMs) {
     await wait(500);
   }
   throw new Error(`failover did not produce ${requiredSuccesses} consecutive backend-b responses`);
+}
+
+async function waitForStatus(url, expectedStatus, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      if ((await fetch(url)).status === expectedStatus) return;
+    } catch {}
+    await wait(100);
+  }
+  throw new Error(`${url} did not return ${expectedStatus}`);
 }
 
 function assert(condition, message) {

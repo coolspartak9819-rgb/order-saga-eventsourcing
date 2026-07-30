@@ -30,9 +30,9 @@
     },
     {
       "type": "stat",
-      "title": "WAF blocks",
+      "title": "WAF detections",
       "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
-      "targets": [{"expr": "sum(edgegate_waf_blocks_total)", "refId": "A"}]
+      "targets": [{"expr": "sum by (mode) (edgegate_waf_detections_total)", "legendFormat": "{{mode}}", "refId": "A"}]
     },
     {
       "type": "timeseries",

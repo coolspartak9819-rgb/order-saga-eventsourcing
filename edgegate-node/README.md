@@ -13,6 +13,8 @@ of hiding them behind a gateway framework.
 - circuit breaker with failure thresholds and half-open recovery;
 - distributed Token Bucket rate limiting through Redis and an atomic Lua script;
 - request WAF for SQL injection, XSS and path traversal signatures;
+- versioned WAF policies with block/monitor modes, audit history and rollback;
+- Redis Pub/Sub delivery of route and WAF policy changes to every replica;
 - request body inspection with a configurable size limit;
 - dynamic middleware modules loaded with `import()`;
 - route-level API key and JWT HS256 authorization policies;
@@ -198,6 +200,50 @@ curl -X PUT http://localhost:8080/control/config \
 A stale version receives HTTP `409 Conflict`. Invalid configuration is
 rejected, and active replicas continue serving the previous route table.
 
+## WAF Policy Management
+
+WAF policy updates use the same optimistic concurrency model as route
+configuration. Policies are validated before storage, retained in an audit
+history and distributed to every gateway replica through Redis Pub/Sub. The
+`monitor` mode records detections without rejecting traffic, which is useful
+when evaluating a new rule against real requests.
+
+Read the active policy and version:
+
+```bash
+curl -H 'X-Control-Key: demo-control-key' \
+  http://localhost:8080/control/waf
+```
+
+Deploy a custom rule in monitor mode:
+
+```bash
+curl -X PUT http://localhost:8080/control/waf \
+  -H 'Content-Type: application/json' \
+  -H 'X-Control-Key: demo-control-key' \
+  -H 'X-Actor: platform@example.com' \
+  -d '{"expectedVersion":0,"policy":{"mode":"monitor","rules":[{"id":"scanner","source":"masscan|sqlmap"}]}}'
+```
+
+Inspect the audit trail or roll back to version 1. A rollback creates a new
+version, so the failed change remains visible in history.
+
+```bash
+curl -H 'X-Control-Key: demo-control-key' \
+  'http://localhost:8080/control/waf/history?limit=20'
+
+curl -X POST http://localhost:8080/control/waf/rollback \
+  -H 'Content-Type: application/json' \
+  -H 'X-Control-Key: demo-control-key' \
+  -H 'X-Actor: incident-commander' \
+  -d '{"expectedVersion":2,"targetVersion":1}'
+```
+
+Operators can register a confirmed false positive through
+`POST /control/waf/false-positive`. Prometheus exposes detections by rule and
+mode as `edgegate_waf_detections_total` and operator feedback as
+`edgegate_waf_false_positives_total`.
+
 ## HTTP/2
 
 Plain local development uses HTTP/1.1. Set `TLS_CERT` and `TLS_KEY` to start a
@@ -216,12 +262,9 @@ npm run check
 docker compose config -q
 ```
 
-The next layer is distributed configuration delivery and richer WAF policy
-management with rule versions and audit events.
-
 ## WAF Scope
 
 This WAF is a bounded application-layer filter for the project, not a claim to
 replace ModSecurity or a managed WAF. Production work would require rule
-versioning, allowlists, false-positive metrics, normalization against encoding
-bypasses and a controlled policy distribution process.
+allowlists, broader normalization against encoding bypasses, managed rule-set
+feeds and regular tuning against application-specific traffic.
