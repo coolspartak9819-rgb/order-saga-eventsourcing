@@ -12,7 +12,9 @@
         { "module": "./plugins/add-header.js", "options": { "name": "x-edgegate", "value": "node-22" } }
       ],
       "rateLimit": { "requestsPerSecond": 20, "burst": 40 },
-      "waf": { "enabled": true, "maxBodyBytes": 1048576 }
+      "waf": { "enabled": true, "maxBodyBytes": 1048576 },
+      "healthCheck": { "enabled": true, "path": "/healthz", "intervalMs": 5000, "timeoutMs": 1000 },
+      "circuitBreaker": { "failureThreshold": 3, "cooldownMs": 10000 }
     }
   ]
 }

@@ -27,8 +27,16 @@ export function validateConfig(config) {
     route.strategy ??= 'round_robin';
     if (!STRATEGIES.has(route.strategy)) throw new Error(`unsupported strategy: ${route.strategy}`);
     route.plugins ??= ['request-id', 'access-log'];
+    route.healthCheck ??= { enabled: true, path: '/healthz', intervalMs: 5000, timeoutMs: 1000 };
+    route.circuitBreaker ??= { failureThreshold: 3, cooldownMs: 10000 };
     if (route.rateLimit && (!(route.rateLimit.requestsPerSecond > 0) || !(route.rateLimit.burst > 0))) {
       throw new Error(`invalid rate limit for route ${route.path}`);
+    }
+    if (route.healthCheck.enabled && (!(route.healthCheck.intervalMs > 0) || !(route.healthCheck.timeoutMs > 0))) {
+      throw new Error(`invalid health check for route ${route.path}`);
+    }
+    if (!(route.circuitBreaker.failureThreshold > 0) || !(route.circuitBreaker.cooldownMs > 0)) {
+      throw new Error(`invalid circuit breaker for route ${route.path}`);
     }
   }
 }

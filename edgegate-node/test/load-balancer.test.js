@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LoadBalancer } from '../src/load-balancer.js';
+import { LoadBalancer, NoHealthyBackendsError } from '../src/load-balancer.js';
 
 test('round robin rotates through backends', () => {
   const balancer = new LoadBalancer(['http://a.local', 'http://b.local'], 'round_robin');
@@ -28,4 +28,33 @@ test('consistent hashing keeps the same key on the same backend', () => {
   const second = balancer.acquire('customer-42');
   assert.equal(first.backend.url.href, second.backend.url.href);
   second.release();
+});
+
+test('skips unhealthy backends', () => {
+  const balancer = new LoadBalancer(['http://a.local', 'http://b.local']);
+  balancer.backends[0].healthy = false;
+  const selected = balancer.acquire();
+  assert.equal(selected.backend.url.hostname, 'b.local');
+  selected.release();
+  balancer.backends[1].healthy = false;
+  assert.throws(() => balancer.acquire(), NoHealthyBackendsError);
+});
+
+test('opens and recovers a circuit breaker', () => {
+  const balancer = new LoadBalancer(['http://a.local'], 'round_robin', {
+    circuitBreaker: { failureThreshold: 2, cooldownMs: 50 },
+    healthCheck: { enabled: false }
+  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const selected = balancer.acquire();
+    selected.recordFailure();
+    selected.release();
+  }
+  assert.throws(() => balancer.acquire(), NoHealthyBackendsError);
+  balancer.backends[0].openedAt = Date.now() - 100;
+  const probe = balancer.acquire();
+  assert.equal(probe.backend.circuitState, 'half_open');
+  probe.recordSuccess();
+  probe.release();
+  assert.equal(probe.backend.circuitState, 'closed');
 });

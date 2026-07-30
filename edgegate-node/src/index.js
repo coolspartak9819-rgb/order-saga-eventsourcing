@@ -50,6 +50,7 @@ fs.watchFile(configPath, { interval: 1000 }, async () => {
 async function shutdown(signal) {
   console.log(`received ${signal}, shutting down`);
   fs.unwatchFile(configPath);
+  gateway.close();
   server.close(async () => {
     await redis.quit();
     process.exit(0);

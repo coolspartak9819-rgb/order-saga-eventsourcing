@@ -9,6 +9,8 @@ of hiding them behind a gateway framework.
 - HTTP/1.1 reverse proxy using Node's native `http` and `https` modules;
 - optional HTTP/2 ingress with TLS and HTTP/1.1 fallback;
 - round-robin, least-connections and consistent-hash load balancing;
+- active upstream health checks with automatic traffic removal;
+- circuit breaker with failure thresholds and half-open recovery;
 - distributed Token Bucket rate limiting through Redis and an atomic Lua script;
 - request WAF for SQL injection, XSS and path traversal signatures;
 - request body inspection with a configurable size limit;
@@ -34,6 +36,11 @@ flowchart LR
 The active route table is compiled before it is swapped into the request path.
 If a configuration or plugin update is invalid, the gateway logs the error and
 continues serving with the previous route table.
+
+Each backend has independent health and circuit state. Active checks remove an
+unreachable instance from selection. Passive network and HTTP 5xx failures open
+the circuit after the configured threshold; one half-open probe is allowed
+after the cooldown period.
 
 ## Run
 
@@ -102,8 +109,8 @@ npm run check
 docker compose config -q
 ```
 
-The first release focuses on the request path. Active upstream health checks,
-circuit breaking, Prometheus metrics and load-test reports are planned next.
+The next operational layer is Prometheus metrics and repeatable load-test
+reports for comparing the balancing strategies.
 
 ## WAF Scope
 
