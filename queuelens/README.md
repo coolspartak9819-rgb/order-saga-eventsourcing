@@ -29,6 +29,9 @@ messages are visible from one place.
 - PostgreSQL-backed idempotency for job creation;
 - per-client rate limiting;
 - middleware unit tests and a real-stack integration script.
+- Kafka audit consumer with a PostgreSQL job event timeline;
+- Grafana dashboard provisioned from the repository;
+- retention worker for removing old jobs and their audit history.
 
 ## Delivery guarantee
 
@@ -85,6 +88,14 @@ The integration check also submits the same create request twice with one
 Set `API_KEY` in the environment to protect `POST /api/jobs` and manual retry
 requests with the `X-API-Key` header.
 
+The retention worker removes jobs older than `RETENTION_DAYS` (30 by default).
+Because `job_events`, outbox records and idempotency records use cascading
+foreign keys, the cleanup keeps operational and audit data consistent:
+
+```bash
+RETENTION_DAYS=14 docker compose up --build
+```
+
 Use `Idempotency-Key` when creating a job. Repeating the same request with the
 same key returns the existing job instead of creating a duplicate:
 
@@ -103,3 +114,6 @@ docker compose up --build --scale worker=3
 
 If a worker dies while holding a message, another worker can reclaim it after
 the pending entry has been idle for 30 seconds.
+
+Click any job in the dashboard to inspect its Kafka-backed event timeline,
+including attempts, errors and event payloads.

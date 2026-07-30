@@ -97,6 +97,18 @@ services:
       kafka:
         condition: service_healthy
 
+  retention:
+    build:
+      context: .
+      args:
+        SERVICE: retention
+    environment:
+      DATABASE_URL: postgres://queuelens:queuelens@postgres:5432/queuelens
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   prometheus:
     image: prom/prometheus:v2.53.0
     ports:

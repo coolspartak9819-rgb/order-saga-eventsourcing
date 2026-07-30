@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/coolspartak9819-rgb/queuelens/internal/events"
 )
@@ -46,4 +47,27 @@ func (s *Postgres) Events(ctx context.Context, jobID string) ([]JobEventRecord, 
 		result = append(result, event)
 	}
 	return result, rows.Err()
+}
+
+// PurgeOld removes jobs and their dependent outbox and audit records in one transaction.
+func (s *Postgres) PurgeOld(ctx context.Context, retentionDays int) (int64, error) {
+	if retentionDays < 1 {
+		return 0, nil
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
+	result, err := tx.Exec(ctx, `DELETE FROM jobs WHERE created_at < $1`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
