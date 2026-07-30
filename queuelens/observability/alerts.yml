@@ -1,0 +1,29 @@
+groups:
+  - name: queuelens
+    rules:
+      - alert: QueueLensAPIDown
+        expr: up{job="queuelens-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: QueueLens API is down
+          description: Prometheus cannot scrape the QueueLens API.
+
+      - alert: QueueLensQueueBacklog
+        expr: queuelens_queue_pending > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: QueueLens queue backlog is growing
+          description: More than 100 messages have been pending for five minutes.
+
+      - alert: QueueLensFailedJobs
+        expr: queuelens_jobs{status="FAILED"} > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: QueueLens has many failed jobs
+          description: More than ten jobs are currently in the FAILED state.

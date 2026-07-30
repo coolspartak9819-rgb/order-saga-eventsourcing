@@ -52,7 +52,7 @@ func main() {
 	service := &api{store: jobStore, queue: jobQueue}
 	mux.HandleFunc("GET /health", service.health)
 	mux.HandleFunc("GET /ready", service.ready)
-	mux.HandleFunc("GET /metrics", metrics)
+	mux.HandleFunc("GET /metrics", service.metrics)
 	mux.HandleFunc("GET /api/jobs", service.list)
 	mux.HandleFunc("POST /api/jobs", service.create)
 	mux.HandleFunc("GET /api/jobs/{id}", service.get)
@@ -181,9 +181,22 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func jsonError(w http.ResponseWriter, err any, status int) {
 	writeJSON(w, status, map[string]any{"error": fmt.Sprint(err)})
 }
-func metrics(w http.ResponseWriter, r *http.Request) {
+func (a *api) metrics(w http.ResponseWriter, r *http.Request) {
+	queueStats, err := a.queue.Stats(r.Context())
+	if err != nil {
+		jsonError(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	jobStats, err := a.store.Stats(r.Context())
+	if err != nil {
+		jsonError(w, err, http.StatusServiceUnavailable)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	fmt.Fprintf(w, "queuelens_http_requests_total %d\nqueuelens_jobs_created_total %d\n", requestsTotal.Load(), jobsCreated.Load())
+	fmt.Fprintf(w, "queuelens_http_requests_total %d\nqueuelens_jobs_created_total %d\nqueuelens_queue_stream_length %d\nqueuelens_queue_pending %d\n", requestsTotal.Load(), jobsCreated.Load(), queueStats.StreamLength, queueStats.Pending)
+	for _, status := range []string{"PENDING", "RUNNING", "RETRYING", "COMPLETED", "FAILED"} {
+		fmt.Fprintf(w, "queuelens_jobs{status=%q} %d\n", status, jobStats[status])
+	}
 }
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

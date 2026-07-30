@@ -35,6 +35,7 @@ messages are visible from one place.
 - Kubernetes manifests with liveness/readiness probes and resource limits;
 - GitHub Actions checks for tests, vet and Compose validation.
 - GitHub Actions builds and publishes one GHCR image per service on `main`.
+- Prometheus alert rules for API availability, queue backlog and failed jobs.
 
 ## Delivery guarantee
 
@@ -77,8 +78,10 @@ chmod +x scripts/load.sh
 COUNT=100 ./scripts/load.sh
 ```
 
-Metrics are available at `http://localhost:8083/metrics`. Kafka lifecycle
-events are published to the `job-events` topic.
+Metrics are available at `http://localhost:8083/metrics`. Prometheus also
+loads alert rules from `observability/alerts.yml` for API availability, queue
+backlog and failed jobs. Kafka lifecycle events are published to the
+`job-events` topic.
 
 Run the integration check against the full stack:
 
