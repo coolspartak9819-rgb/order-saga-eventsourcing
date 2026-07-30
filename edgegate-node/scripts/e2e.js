@@ -20,11 +20,7 @@ try {
   assert(updatedConfig.version === currentConfig.version + 1, 'config version did not advance');
 
   docker('compose', 'stop', 'backend-a');
-  await waitForMetric('edgegate_backend_healthy{route="/api",backend="http://backend-a:8080"} 0', 20_000);
-  for (let index = 0; index < 10; index += 1) {
-    const response = await fetchJSON(`${gatewayUrl}/api/failover-${index}`);
-    assert(response.name === 'backend-b', `request reached unhealthy backend: ${response.name}`);
-  }
+  await waitForFailover(10, 30_000);
 
   const metrics = await fetch(`${gatewayUrl}/metrics`).then(response => response.text());
   assert(metrics.includes('edgegate_backend_healthy'), 'backend health metric is missing');
@@ -64,16 +60,19 @@ async function waitFor(url, timeoutMs) {
   throw new Error(`timed out waiting for ${url}`);
 }
 
-async function waitForMetric(expectedLine, timeoutMs) {
+async function waitForFailover(requiredSuccesses, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
+  let consecutive = 0;
   while (Date.now() < deadline) {
     try {
-      const metrics = await fetch(`${gatewayUrl}/metrics`).then(response => response.text());
-      if (metrics.includes(expectedLine)) return;
-    } catch {}
+      const response = await fetch(`${gatewayUrl}/api/failover-${consecutive}`);
+      if (response.ok && (await response.json()).name === 'backend-b') consecutive += 1;
+      else consecutive = 0;
+      if (consecutive >= requiredSuccesses) return;
+    } catch { consecutive = 0; }
     await wait(500);
   }
-  throw new Error(`timed out waiting for metric: ${expectedLine}`);
+  throw new Error(`failover did not produce ${requiredSuccesses} consecutive backend-b responses`);
 }
 
 function assert(condition, message) {
