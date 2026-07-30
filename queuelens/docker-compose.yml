@@ -33,6 +33,7 @@ services:
       QUEUE_STREAM: jobs
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: job-events
+      API_KEY: ${API_KEY:-}
     ports:
       - "8083:8080"
     depends_on:

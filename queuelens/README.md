@@ -22,6 +22,9 @@ messages are visible from one place.
 - Redis pending-message recovery with `XAUTOCLAIM`;
 - graceful shutdown for the HTTP API;
 - support for running multiple worker replicas.
+- optional API key protection for write and retry operations;
+- per-client rate limiting;
+- middleware unit tests and a real-stack integration script.
 
 ## Delivery guarantee
 
@@ -59,6 +62,16 @@ COUNT=100 ./scripts/load.sh
 
 Metrics are available at `http://localhost:8083/metrics`. Kafka lifecycle
 events are published to the `job-events` topic.
+
+Run the integration check against the full stack:
+
+```bash
+chmod +x scripts/integration.sh
+./scripts/integration.sh
+```
+
+Set `API_KEY` in the environment to protect `POST /api/jobs` and manual retry
+requests with the `X-API-Key` header.
 
 Run several workers locally to exercise the consumer group:
 

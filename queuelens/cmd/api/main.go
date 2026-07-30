@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/coolspartak9819-rgb/queuelens/internal/middleware"
 	"github.com/coolspartak9819-rgb/queuelens/internal/queue"
 	"github.com/coolspartak9819-rgb/queuelens/internal/store"
 )
@@ -55,6 +56,7 @@ func main() {
 	mux.HandleFunc("GET /api/stats", service.stats)
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 	server := &http.Server{Addr: ":8080", Handler: logging(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	server.Handler = logging(middleware.NewRateLimiter(60, time.Minute).Middleware(middleware.APIKey(env("API_KEY", ""))(mux)))
 	log.Printf("QueueLens API listening on %s", server.Addr)
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- server.ListenAndServe() }()
