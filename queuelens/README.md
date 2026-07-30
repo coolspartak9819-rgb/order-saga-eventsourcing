@@ -19,6 +19,9 @@ messages are visible from one place.
 - Docker Compose for API, worker, Redis and PostgreSQL.
 - Kafka lifecycle events for completed, retried and failed jobs;
 - Prometheus-style API metrics and a repeatable load script.
+- Redis pending-message recovery with `XAUTOCLAIM`;
+- graceful shutdown for the HTTP API;
+- support for running multiple worker replicas.
 
 ## Delivery guarantee
 
@@ -56,3 +59,12 @@ COUNT=100 ./scripts/load.sh
 
 Metrics are available at `http://localhost:8083/metrics`. Kafka lifecycle
 events are published to the `job-events` topic.
+
+Run several workers locally to exercise the consumer group:
+
+```bash
+docker compose up --build --scale worker=3
+```
+
+If a worker dies while holding a message, another worker can reclaim it after
+the pending entry has been idle for 30 seconds.

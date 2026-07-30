@@ -44,6 +44,14 @@ type Message struct {
 }
 
 func (q *Redis) Next(ctx context.Context) (Message, error) {
+	recovered, _, err := q.client.XAutoClaim(ctx, &redis.XAutoClaimArgs{Stream: q.stream, Group: q.group, Consumer: q.consumer, MinIdle: 30 * time.Second, Start: "0-0", Count: 1}).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return Message{}, err
+	}
+	if len(recovered) > 0 {
+		return parseMessage(recovered[0])
+	}
+
 	entries, err := q.client.XReadGroup(ctx, &redis.XReadGroupArgs{Group: q.group, Consumer: q.consumer, Streams: []string{q.stream, ">"}, Count: 1, Block: 5 * time.Second}).Result()
 	if errors.Is(err, redis.Nil) {
 		return Message{}, ErrNoMessage
@@ -54,7 +62,10 @@ func (q *Redis) Next(ctx context.Context) (Message, error) {
 	if len(entries) == 0 || len(entries[0].Messages) == 0 {
 		return Message{}, ErrNoMessage
 	}
-	entry := entries[0].Messages[0]
+	return parseMessage(entries[0].Messages[0])
+}
+
+func parseMessage(entry redis.XMessage) (Message, error) {
 	job, ok := entry.Values["id"].(string)
 	if !ok {
 		return Message{}, errors.New("queue message has no id")
