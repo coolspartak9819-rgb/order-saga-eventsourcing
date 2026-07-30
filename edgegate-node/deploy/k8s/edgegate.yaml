@@ -1,0 +1,269 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edgegate
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edgegate-config
+  namespace: edgegate
+data:
+  config.json: |
+    {
+      "listen": { "host": "0.0.0.0", "port": 8080 },
+      "redisUrl": "redis://redis:6379",
+      "routes": [
+        {
+          "path": "/api",
+          "backends": ["http://backend-a:8080", "http://backend-b:8080"],
+          "strategy": "least_connections",
+          "plugins": ["request-id", "access-log"],
+          "rateLimit": { "requestsPerSecond": 100, "burst": 200 },
+          "waf": { "enabled": true, "maxBodyBytes": 1048576 },
+          "healthCheck": { "enabled": true, "path": "/healthz", "intervalMs": 5000, "timeoutMs": 1000 },
+          "circuitBreaker": { "failureThreshold": 3, "cooldownMs": 10000 }
+        },
+        {
+          "path": "/admin",
+          "backends": ["http://backend-a:8080", "http://backend-b:8080"],
+          "strategy": "round_robin",
+          "plugins": ["request-id", { "name": "api-key", "options": { "keysEnv": "EDGEGATE_API_KEYS" } }, "access-log"],
+          "healthCheck": { "enabled": true, "path": "/healthz", "intervalMs": 5000, "timeoutMs": 1000 },
+          "circuitBreaker": { "failureThreshold": 3, "cooldownMs": 10000 }
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: edgegate-secrets
+  namespace: edgegate
+type: Opaque
+stringData:
+  EDGEGATE_API_KEYS: change-me
+  EDGEGATE_JWT_SECRET: change-me
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: edgegate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: edgegate
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-a
+  namespace: edgegate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-a
+  template:
+    metadata:
+      labels:
+        app: backend-a
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/coolspartak9819-rgb/edgegate-node:latest
+          command: ["node", "demo/upstream.js"]
+          env:
+            - name: INSTANCE_NAME
+              value: backend-a
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          resources:
+            requests: { cpu: 25m, memory: 48Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-a
+  namespace: edgegate
+spec:
+  selector:
+    app: backend-a
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-b
+  namespace: edgegate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-b
+  template:
+    metadata:
+      labels:
+        app: backend-b
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/coolspartak9819-rgb/edgegate-node:latest
+          command: ["node", "demo/upstream.js"]
+          env:
+            - name: INSTANCE_NAME
+              value: backend-b
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          resources:
+            requests: { cpu: 25m, memory: 48Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-b
+  namespace: edgegate
+spec:
+  selector:
+    app: backend-b
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edgegate
+  namespace: edgegate
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edgegate
+  template:
+    metadata:
+      labels:
+        app: edgegate
+    spec:
+      containers:
+        - name: edgegate
+          image: ghcr.io/coolspartak9819-rgb/edgegate-node:latest
+          envFrom:
+            - secretRef:
+                name: edgegate-secrets
+          env:
+            - name: CONFIG_PATH
+              value: /app/config.json
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.json
+              subPath: config.json
+              readOnly: true
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: config
+          configMap:
+            name: edgegate-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edgegate
+  namespace: edgegate
+spec:
+  type: LoadBalancer
+  selector:
+    app: edgegate
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edgegate
+  namespace: edgegate
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: edgegate
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edgegate
+  namespace: edgegate
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edgegate
+  minReplicas: 2
+  maxReplicas: 6
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -24,6 +24,9 @@ of hiding them behind a gateway framework.
 - repeatable Node.js load test with RPS and p50/p95/p99 reporting;
 - provisioned Grafana dashboard for traffic, latency and backend state;
 - Docker-based e2e failover scenario that stops one upstream during traffic;
+- Kubernetes deployment with probes, resources, HPA and PodDisruptionBudget;
+- optional cert-manager and nginx-ingress TLS automation;
+- automatic GHCR image publishing after CI and e2e checks;
 - Docker Compose demo stack and GitHub Actions CI.
 
 ## Architecture
@@ -151,6 +154,21 @@ Protect a route with JWT and a required role:
 
 Secrets are never stored in the route configuration or committed example.
 
+## Kubernetes
+
+The manifests in `deploy/k8s` run two gateway replicas with readiness and
+liveness probes, resource limits, horizontal autoscaling and a disruption
+budget. The repository also contains a self-contained Redis and demo-upstream
+setup for cluster evaluation.
+
+```bash
+kubectl apply -f deploy/k8s/edgegate.yaml
+```
+
+The optional `deploy/k8s/tls.yaml` uses cert-manager and nginx-ingress to obtain
+and renew a Let's Encrypt certificate. Hostname, email and secret values must
+be replaced before deployment.
+
 ## HTTP/2
 
 Plain local development uses HTTP/1.1. Set `TLS_CERT` and `TLS_KEY` to start a
@@ -169,8 +187,8 @@ npm run check
 docker compose config -q
 ```
 
-The next layer is authentication policy, TLS certificate automation and
-Kubernetes deployment manifests.
+The next layer is distributed configuration delivery and richer WAF policy
+management with rule versions and audit events.
 
 ## WAF Scope
 
