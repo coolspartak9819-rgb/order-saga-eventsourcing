@@ -65,6 +65,21 @@ services:
       kafka:
         condition: service_healthy
 
+  dispatcher:
+    build:
+      context: .
+      args:
+        SERVICE: dispatcher
+    environment:
+      DATABASE_URL: postgres://queuelens:queuelens@postgres:5432/queuelens
+      REDIS_ADDR: redis:6379
+      QUEUE_STREAM: jobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   kafka:
     image: apache/kafka:4.0.0
     environment:

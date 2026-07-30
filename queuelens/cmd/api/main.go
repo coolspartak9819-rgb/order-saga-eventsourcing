@@ -71,13 +71,8 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID()
 	job := store.NewJob(id, input.Type, input.Payload)
-	if err := a.store.Create(r.Context(), job); err != nil {
+	if err := a.store.CreateWithOutbox(r.Context(), job); err != nil {
 		jsonError(w, err, 500)
-		return
-	}
-	if err := a.queue.Enqueue(r.Context(), job); err != nil {
-		_ = a.store.Fail(r.Context(), id, err.Error())
-		jsonError(w, err, 503)
 		return
 	}
 	jobsCreated.Add(1)

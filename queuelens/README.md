@@ -11,6 +11,7 @@ messages are visible from one place.
 - Go HTTP API;
 - Redis Streams queue and consumer group;
 - PostgreSQL job history;
+- PostgreSQL transactional outbox and a dedicated dispatcher;
 - worker process with graceful shutdown;
 - retry policy and dead-letter stream;
 - manual retry for failed jobs;
@@ -18,6 +19,14 @@ messages are visible from one place.
 - Docker Compose for API, worker, Redis and PostgreSQL.
 - Kafka lifecycle events for completed, retried and failed jobs;
 - Prometheus-style API metrics and a repeatable load script.
+
+## Delivery guarantee
+
+The API writes a job and its outbox record in one PostgreSQL transaction. The
+dispatcher claims pending outbox records and publishes them to Redis Streams.
+Failed deliveries use exponential backoff. A record that was published before
+the dispatcher crashed can be delivered again, so workers must remain
+idempotent. This is an intentional at-least-once delivery model.
 
 ## Run
 
