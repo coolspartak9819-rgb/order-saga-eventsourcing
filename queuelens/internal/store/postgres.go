@@ -29,6 +29,8 @@ func New(ctx context.Context, url string) (*Postgres, error) {
 
 func (s *Postgres) Close() { s.pool.Close() }
 
+func (s *Postgres) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+
 func (s *Postgres) Create(ctx context.Context, job domain.Job) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO jobs (id, job_type, payload, status) VALUES ($1, $2, $3, $4)`, job.ID, job.Type, job.Payload, job.Status)
 	return err

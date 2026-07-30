@@ -1,0 +1,226 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: queuelens
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: queuelens-config
+  namespace: queuelens
+data:
+  REDIS_ADDR: redis:6379
+  QUEUE_STREAM: jobs
+  KAFKA_BROKERS: kafka:9092
+  KAFKA_TOPIC: job-events
+  WORKER_GROUP: queuelens-workers
+  MAX_ATTEMPTS: "3"
+  RETENTION_DAYS: "30"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: queuelens-secrets
+  namespace: queuelens
+type: Opaque
+stringData:
+  DATABASE_URL: postgres://queuelens:change-me@postgres:5432/queuelens
+  API_KEY: change-me
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queuelens-api
+  namespace: queuelens
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: queuelens-api
+  template:
+    metadata:
+      labels:
+        app: queuelens-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/your-org/queuelens-api:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: queuelens-config
+            - secretRef:
+                name: queuelens-secrets
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: queuelens-api
+  namespace: queuelens
+spec:
+  selector:
+    app: queuelens-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queuelens-worker
+  namespace: queuelens
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: queuelens-worker
+  template:
+    metadata:
+      labels:
+        app: queuelens-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/your-org/queuelens-worker:latest
+          envFrom:
+            - configMapRef:
+                name: queuelens-config
+            - secretRef:
+                name: queuelens-secrets
+          env:
+            - name: WORKER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queuelens-dispatcher
+  namespace: queuelens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: queuelens-dispatcher
+  template:
+    metadata:
+      labels:
+        app: queuelens-dispatcher
+    spec:
+      containers:
+        - name: dispatcher
+          image: ghcr.io/your-org/queuelens-dispatcher:latest
+          envFrom:
+            - configMapRef:
+                name: queuelens-config
+            - secretRef:
+                name: queuelens-secrets
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queuelens-audit
+  namespace: queuelens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: queuelens-audit
+  template:
+    metadata:
+      labels:
+        app: queuelens-audit
+    spec:
+      containers:
+        - name: audit
+          image: ghcr.io/your-org/queuelens-audit:latest
+          envFrom:
+            - configMapRef:
+                name: queuelens-config
+            - secretRef:
+                name: queuelens-secrets
+          env:
+            - name: KAFKA_GROUP
+              value: queuelens-audit
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queuelens-retention
+  namespace: queuelens
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: queuelens-retention
+  template:
+    metadata:
+      labels:
+        app: queuelens-retention
+    spec:
+      containers:
+        - name: retention
+          image: ghcr.io/your-org/queuelens-retention:latest
+          envFrom:
+            - configMapRef:
+                name: queuelens-config
+            - secretRef:
+                name: queuelens-secrets
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi

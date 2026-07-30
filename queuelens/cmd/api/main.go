@@ -51,6 +51,7 @@ func main() {
 	mux := http.NewServeMux()
 	service := &api{store: jobStore, queue: jobQueue}
 	mux.HandleFunc("GET /health", service.health)
+	mux.HandleFunc("GET /ready", service.ready)
 	mux.HandleFunc("GET /metrics", metrics)
 	mux.HandleFunc("GET /api/jobs", service.list)
 	mux.HandleFunc("POST /api/jobs", service.create)
@@ -83,11 +84,18 @@ func main() {
 }
 
 func (a *api) health(w http.ResponseWriter, r *http.Request) {
-	if err := a.queue.Ping(r.Context()); err != nil {
-		jsonError(w, err, 503)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+func (a *api) ready(w http.ResponseWriter, r *http.Request) {
+	if err := a.store.Ping(r.Context()); err != nil {
+		jsonError(w, err, http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, 200, map[string]string{"status": "ok"})
+	if err := a.queue.Ping(r.Context()); err != nil {
+		jsonError(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 func (a *api) create(w http.ResponseWriter, r *http.Request) {
 	var input createRequest
@@ -119,7 +127,10 @@ func (a *api) get(w http.ResponseWriter, r *http.Request) {
 }
 func (a *api) events(w http.ResponseWriter, r *http.Request) {
 	events, err := a.store.Events(r.Context(), r.PathValue("id"))
-	if err != nil { jsonError(w, err, http.StatusInternalServerError); return }
+	if err != nil {
+		jsonError(w, err, http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": events})
 }
 func (a *api) list(w http.ResponseWriter, r *http.Request) {

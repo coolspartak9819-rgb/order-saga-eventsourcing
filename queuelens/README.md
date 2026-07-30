@@ -32,6 +32,8 @@ messages are visible from one place.
 - Kafka audit consumer with a PostgreSQL job event timeline;
 - Grafana dashboard provisioned from the repository;
 - retention worker for removing old jobs and their audit history.
+- Kubernetes manifests with liveness/readiness probes and resource limits;
+- GitHub Actions checks for tests, vet and Compose validation.
 
 ## Delivery guarantee
 
@@ -48,6 +50,8 @@ docker compose up --build
 ```
 
 Open http://localhost:8083.
+
+Kubernetes deployment manifests are available in `deploy/k8s`.
 
 Prometheus is available at http://localhost:9090.
 
