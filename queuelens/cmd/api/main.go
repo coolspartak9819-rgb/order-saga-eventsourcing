@@ -92,8 +92,13 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID()
 	job := store.NewJob(id, input.Type, input.Payload)
-	if err := a.store.CreateWithOutbox(r.Context(), job); err != nil {
+	jobID, created, err := a.store.CreateWithOutbox(r.Context(), job, r.Header.Get("Idempotency-Key"))
+	if err != nil {
 		jsonError(w, err, 500)
+		return
+	}
+	if !created {
+		writeJSON(w, http.StatusOK, response{JobID: jobID})
 		return
 	}
 	jobsCreated.Add(1)

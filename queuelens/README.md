@@ -23,6 +23,7 @@ messages are visible from one place.
 - graceful shutdown for the HTTP API;
 - support for running multiple worker replicas.
 - optional API key protection for write and retry operations;
+- PostgreSQL-backed idempotency for job creation;
 - per-client rate limiting;
 - middleware unit tests and a real-stack integration script.
 
@@ -70,8 +71,21 @@ chmod +x scripts/integration.sh
 ./scripts/integration.sh
 ```
 
+The integration check also submits the same create request twice with one
+`Idempotency-Key` and verifies that both responses contain the same job ID.
+
 Set `API_KEY` in the environment to protect `POST /api/jobs` and manual retry
 requests with the `X-API-Key` header.
+
+Use `Idempotency-Key` when creating a job. Repeating the same request with the
+same key returns the existing job instead of creating a duplicate:
+
+```bash
+curl -X POST http://localhost:8083/api/jobs \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: import-2026-01-01' \
+  -d '{"type":"image.process","payload":{"file":"demo.jpg"}}'
+```
 
 Run several workers locally to exercise the consumer group:
 
