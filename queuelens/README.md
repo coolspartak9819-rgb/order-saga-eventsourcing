@@ -1,0 +1,37 @@
+# QueueLens
+
+QueueLens is a small self-hosted queue operations dashboard.
+
+It demonstrates how queued work moves through a system and what happens when
+processing fails: pending jobs, running workers, retries and dead-letter
+messages are visible from one place.
+
+## Current scope
+
+- Go HTTP API;
+- Redis Streams queue and consumer group;
+- PostgreSQL job history;
+- worker process with graceful shutdown;
+- retry policy and dead-letter stream;
+- manual retry for failed jobs;
+- stats endpoint and responsive dashboard;
+- Docker Compose for API, worker, Redis and PostgreSQL.
+
+## Run
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:8083.
+
+Create a normal job in the dashboard, or create a deterministic failure:
+
+```bash
+curl -X POST http://localhost:8083/api/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"image.process","payload":{"fail":true}}'
+```
+
+After three attempts the job is marked `FAILED` and copied to the Redis
+`jobs.dlq` stream. A failed job can be requeued from the dashboard.

@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: queuelens
+      POSTGRES_USER: queuelens
+      POSTGRES_PASSWORD: queuelens
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U queuelens -d queuelens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      args:
+        SERVICE: api
+    environment:
+      DATABASE_URL: postgres://queuelens:queuelens@postgres:5432/queuelens
+      REDIS_ADDR: redis:6379
+      QUEUE_STREAM: jobs
+    ports:
+      - "8083:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      args:
+        SERVICE: worker
+    environment:
+      DATABASE_URL: postgres://queuelens:queuelens@postgres:5432/queuelens
+      REDIS_ADDR: redis:6379
+      QUEUE_STREAM: jobs
+      WORKER_GROUP: queuelens-workers
+      WORKER_NAME: worker-1
+      MAX_ATTEMPTS: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

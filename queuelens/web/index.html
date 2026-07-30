@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QueueLens</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><div class="brand"><span class="brand-mark">Q</span><div><strong>QueueLens</strong><small>worker operations</small></div></div><span class="live"><i></i> API connected</span></header>
+    <section class="hero"><div><p class="eyebrow">Queue operations</p><h1>See work move.<br><em>Fix it when it doesn't.</em></h1><p class="lede">A focused view of pending jobs, worker health and failed deliveries.</p></div><form id="job-form" class="create-form"><label>Job type<input id="job-type" value="image.process" required></label><label>Payload<textarea id="job-payload">{"file":"demo.jpg"}</textarea></label><button type="submit">Enqueue job <span>→</span></button></form></section>
+    <section class="stats" id="stats"></section>
+    <section class="panel"><div class="panel-head"><div><p class="eyebrow">Live queue</p><h2>Recent jobs</h2></div><div class="filters"><button class="filter active" data-status="">All</button><button class="filter" data-status="PENDING">Pending</button><button class="filter" data-status="RUNNING">Running</button><button class="filter" data-status="FAILED">Failed</button></div></div><div class="table-wrap"><table><thead><tr><th>Job</th><th>Type</th><th>Status</th><th>Attempts</th><th>Created</th><th></th></tr></thead><tbody id="jobs"></tbody></table></div><div id="empty" class="empty" hidden>No jobs match this filter.</div></section>
+  </main>
+  <div id="toast" class="toast"></div><script src="/app.js"></script>
+</body>
+</html>
