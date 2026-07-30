@@ -16,6 +16,8 @@ messages are visible from one place.
 - manual retry for failed jobs;
 - stats endpoint and responsive dashboard;
 - Docker Compose for API, worker, Redis and PostgreSQL.
+- Kafka lifecycle events for completed, retried and failed jobs;
+- Prometheus-style API metrics and a repeatable load script.
 
 ## Run
 
@@ -35,3 +37,13 @@ curl -X POST http://localhost:8083/api/jobs \
 
 After three attempts the job is marked `FAILED` and copied to the Redis
 `jobs.dlq` stream. A failed job can be requeued from the dashboard.
+
+Generate a small load sample:
+
+```bash
+chmod +x scripts/load.sh
+COUNT=100 ./scripts/load.sh
+```
+
+Metrics are available at `http://localhost:8083/metrics`. Kafka lifecycle
+events are published to the `job-events` topic.

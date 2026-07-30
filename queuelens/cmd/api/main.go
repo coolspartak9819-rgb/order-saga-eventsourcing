@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/coolspartak9819-rgb/queuelens/internal/queue"
@@ -27,6 +28,9 @@ type response struct {
 	JobID string `json:"job_id"`
 }
 
+var requestsTotal atomic.Uint64
+var jobsCreated atomic.Uint64
+
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -40,6 +44,7 @@ func main() {
 	mux := http.NewServeMux()
 	service := &api{store: jobStore, queue: jobQueue}
 	mux.HandleFunc("GET /health", service.health)
+	mux.HandleFunc("GET /metrics", metrics)
 	mux.HandleFunc("GET /api/jobs", service.list)
 	mux.HandleFunc("POST /api/jobs", service.create)
 	mux.HandleFunc("GET /api/jobs/{id}", service.get)
@@ -75,6 +80,7 @@ func (a *api) create(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err, 503)
 		return
 	}
+	jobsCreated.Add(1)
 	writeJSON(w, 202, response{JobID: id})
 }
 func (a *api) get(w http.ResponseWriter, r *http.Request) {
@@ -125,8 +131,13 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func jsonError(w http.ResponseWriter, err any, status int) {
 	writeJSON(w, status, map[string]any{"error": fmt.Sprint(err)})
 }
+func metrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	fmt.Fprintf(w, "queuelens_http_requests_total %d\nqueuelens_jobs_created_total %d\n", requestsTotal.Load(), jobsCreated.Load())
+}
 func logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestsTotal.Add(1)
 		started := time.Now()
 		next.ServeHTTP(w, r)
 		log.Printf("method=%s path=%s duration=%s", r.Method, r.URL.Path, time.Since(started))

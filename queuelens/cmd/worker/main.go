@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coolspartak9819-rgb/queuelens/internal/domain"
+	"github.com/coolspartak9819-rgb/queuelens/internal/events"
 	"github.com/coolspartak9819-rgb/queuelens/internal/queue"
 	"github.com/coolspartak9819-rgb/queuelens/internal/store"
 )
@@ -25,6 +26,11 @@ func main() {
 	defer jobStore.Close()
 	jobQueue := queue.New(env("REDIS_ADDR", "localhost:6379"), env("QUEUE_STREAM", "jobs"), env("WORKER_GROUP", "queuelens-workers"), env("WORKER_NAME", "worker-1"))
 	defer jobQueue.Close()
+	publisher, err := events.NewPublisher(env("KAFKA_BROKERS", "localhost:9092"), env("KAFKA_TOPIC", "job-events"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer publisher.Close()
 	if err := jobQueue.Ping(ctx); err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +43,7 @@ func main() {
 	}
 	log.Println("QueueLens worker started")
 	for {
-		if err := process(ctx, jobStore, jobQueue, maxAttempts); errors.Is(err, context.Canceled) {
+		if err := process(ctx, jobStore, jobQueue, publisher, maxAttempts); errors.Is(err, context.Canceled) {
 			return
 		} else if err != nil {
 			log.Printf("worker error: %v", err)
@@ -46,7 +52,7 @@ func main() {
 	}
 }
 
-func process(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redis, maxAttempts int) error {
+func process(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redis, publisher *events.Publisher, maxAttempts int) error {
 	message, err := jobQueue.Next(ctx)
 	if errors.Is(err, queue.ErrNoMessage) {
 		return nil
@@ -58,16 +64,19 @@ func process(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redi
 		return err
 	}
 	if string(message.Payload) == "{\"fail\":true}" {
-		return failJob(ctx, jobStore, jobQueue, message, maxAttempts, errors.New("simulated job failure"))
+		return failJob(ctx, jobStore, jobQueue, publisher, message, maxAttempts, errors.New("simulated job failure"))
 	}
 	time.Sleep(300 * time.Millisecond)
 	if err := jobStore.Complete(ctx, message.JobID); err != nil {
 		return err
 	}
+	if err := publisher.Publish(ctx, events.JobEvent{JobID: message.JobID, Type: message.Type, Status: domain.StatusCompleted, OccurredAt: time.Now().UTC()}); err != nil {
+		log.Printf("publish completed event: %v", err)
+	}
 	return jobQueue.Ack(ctx, message.ID)
 }
 
-func failJob(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redis, message queue.Message, maxAttempts int, cause error) error {
+func failJob(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redis, publisher *events.Publisher, message queue.Message, maxAttempts int, cause error) error {
 	job, err := jobStore.Get(ctx, message.JobID)
 	if err != nil {
 		return err
@@ -79,10 +88,16 @@ func failJob(ctx context.Context, jobStore *store.Postgres, jobQueue *queue.Redi
 		if err := jobQueue.DeadLetter(ctx, message, cause.Error()); err != nil {
 			return err
 		}
+		if err := publisher.Publish(ctx, events.JobEvent{JobID: message.JobID, Type: message.Type, Status: domain.StatusFailed, Attempts: job.Attempts, Error: cause.Error(), OccurredAt: time.Now().UTC()}); err != nil {
+			log.Printf("publish failed event: %v", err)
+		}
 		return jobQueue.Ack(ctx, message.ID)
 	}
 	if err := jobStore.Retry(ctx, message.JobID, cause.Error()); err != nil {
 		return err
+	}
+	if err := publisher.Publish(ctx, events.JobEvent{JobID: message.JobID, Type: message.Type, Status: domain.StatusRetrying, Attempts: job.Attempts, Error: cause.Error(), OccurredAt: time.Now().UTC()}); err != nil {
+		log.Printf("publish retry event: %v", err)
 	}
 	if err := jobQueue.Ack(ctx, message.ID); err != nil {
 		return err
