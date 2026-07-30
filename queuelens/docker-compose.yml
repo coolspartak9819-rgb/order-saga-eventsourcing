@@ -81,6 +81,22 @@ services:
       redis:
         condition: service_healthy
 
+  audit:
+    build:
+      context: .
+      args:
+        SERVICE: audit
+    environment:
+      DATABASE_URL: postgres://queuelens:queuelens@postgres:5432/queuelens
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: job-events
+      KAFKA_GROUP: queuelens-audit
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   prometheus:
     image: prom/prometheus:v2.53.0
     ports:
@@ -89,6 +105,20 @@ services:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - api
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
 
   kafka:
     image: apache/kafka:4.0.0

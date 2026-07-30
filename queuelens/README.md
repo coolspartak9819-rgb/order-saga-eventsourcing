@@ -48,6 +48,9 @@ Open http://localhost:8083.
 
 Prometheus is available at http://localhost:9090.
 
+Grafana is available at http://localhost:3000 (`admin` / `admin`) with a
+provisioned QueueLens dashboard.
+
 Create a normal job in the dashboard, or create a deterministic failure:
 
 ```bash

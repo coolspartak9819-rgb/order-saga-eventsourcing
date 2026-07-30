@@ -55,6 +55,7 @@ func main() {
 	mux.HandleFunc("GET /api/jobs", service.list)
 	mux.HandleFunc("POST /api/jobs", service.create)
 	mux.HandleFunc("GET /api/jobs/{id}", service.get)
+	mux.HandleFunc("GET /api/jobs/{id}/events", service.events)
 	mux.HandleFunc("POST /api/jobs/{id}/retry", service.retry)
 	mux.HandleFunc("GET /api/stats", service.stats)
 	mux.HandleFunc("GET /api/queue", service.queueStats)
@@ -115,6 +116,11 @@ func (a *api) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, job)
+}
+func (a *api) events(w http.ResponseWriter, r *http.Request) {
+	events, err := a.store.Events(r.Context(), r.PathValue("id"))
+	if err != nil { jsonError(w, err, http.StatusInternalServerError); return }
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
 }
 func (a *api) list(w http.ResponseWriter, r *http.Request) {
 	jobs, err := a.store.List(r.Context(), r.URL.Query().Get("status"))
