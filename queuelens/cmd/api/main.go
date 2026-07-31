@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"strings"
@@ -63,6 +64,7 @@ func main() {
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 	server := &http.Server{Addr: ":8080", Handler: logging(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
 	server.Handler = logging(middleware.NewRateLimiter(60, time.Minute).Middleware(middleware.APIKey(env("API_KEY", ""))(mux)))
+	pprofServer := startPprofServer(env("PPROF_ADDR", ""))
 	log.Printf("QueueLens API listening on %s", server.Addr)
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- server.ListenAndServe() }()
@@ -80,7 +82,39 @@ func main() {
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Printf("API shutdown: %v", err)
 		}
+		if pprofServer != nil {
+			if err := pprofServer.Shutdown(shutdownCtx); err != nil {
+				log.Printf("pprof shutdown: %v", err)
+			}
+		}
 	}
+}
+
+func startPprofServer(addr string) *http.Server {
+	if strings.TrimSpace(addr) == "" {
+		return nil
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+	mux.Handle("GET /debug/pprof/goroutine", pprof.Handler("goroutine"))
+	mux.Handle("GET /debug/pprof/heap", pprof.Handler("heap"))
+	mux.Handle("GET /debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	mux.Handle("GET /debug/pprof/block", pprof.Handler("block"))
+	mux.Handle("GET /debug/pprof/mutex", pprof.Handler("mutex"))
+
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		log.Printf("QueueLens pprof listening on %s", addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("pprof server: %v", err)
+		}
+	}()
+	return server
 }
 
 func (a *api) health(w http.ResponseWriter, r *http.Request) {
