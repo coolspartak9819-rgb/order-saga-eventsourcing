@@ -123,7 +123,7 @@ The Go API exposes the standard pprof endpoints on a separate listener when
 `PPROF_ADDR` is configured. Keep this listener private:
 
 ```bash
-PPROF_ADDR=127.0.0.1:6060 docker compose up --build api
+PPROF_ADDR=0.0.0.0:6060 docker compose up --build api
 go tool pprof http://127.0.0.1:6060/debug/pprof/profile?seconds=30
 ```
 
