@@ -34,8 +34,10 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: job-events
       API_KEY: ${API_KEY:-}
+      PPROF_ADDR: ${PPROF_ADDR:-}
     ports:
       - "8083:8080"
+      - "127.0.0.1:6060:6060"
     depends_on:
       postgres:
         condition: service_healthy
