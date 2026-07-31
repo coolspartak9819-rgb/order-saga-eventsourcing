@@ -103,6 +103,17 @@ The scenario starts the stack, sends a baseline request, stops `backend-a`,
 waits for active health checking to remove it and verifies that subsequent
 traffic is served only by `backend-b`. The stack is cleaned up afterward.
 
+Run the dependency failure check:
+
+```bash
+npm run chaos
+```
+
+This scenario stops Redis, verifies that rate-limited traffic fails with a
+service-unavailable response, starts Redis again and checks that the gateway
+recovers. It is intended for local or CI environments and removes the Compose
+stack when it finishes.
+
 ## Dynamic Plugins
 
 A plugin exports a middleware factory:
