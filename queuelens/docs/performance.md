@@ -16,6 +16,19 @@ Run a small check:
 REQUESTS=1000 CONCURRENCY=50 node scripts/benchmark.js
 ```
 
+To build the stack, wait for the API and clean it up automatically after the
+run, use:
+
+```bash
+REQUESTS=1000 CONCURRENCY=50 ./scripts/performance.sh
+```
+
+Set `RESULT_FILE` to keep the JSON result in a chosen location:
+
+```bash
+RESULT_FILE=docs/performance-result.json REQUESTS=5000 CONCURRENCY=100 ./scripts/performance.sh
+```
+
 The output includes:
 
 • total request count and concurrency;
