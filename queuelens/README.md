@@ -103,7 +103,12 @@ COUNT=100 ./scripts/load.sh
 Metrics are available at `http://localhost:8083/metrics`. Prometheus also
 loads alert rules from `observability/alerts.yml` for API availability, queue
 backlog and failed jobs. Kafka lifecycle events are published to the
-`job-events` topic.
+`job-events` topic. The API exports a latency histogram, so p95 and p99 can be
+calculated without parsing application logs:
+
+```promql
+histogram_quantile(0.95, rate(queuelens_http_request_duration_seconds_bucket[5m]))
+```
 
 The Go API exposes the standard pprof endpoints on a separate listener when
 `PPROF_ADDR` is configured. Keep this listener private:

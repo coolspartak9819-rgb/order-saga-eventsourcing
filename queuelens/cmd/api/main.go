@@ -35,6 +35,17 @@ type response struct {
 
 var requestsTotal atomic.Uint64
 var jobsCreated atomic.Uint64
+var requestLatencyCount atomic.Uint64
+var requestLatencySumMicros atomic.Uint64
+var requestLatencyBuckets [6]atomic.Uint64
+
+var latencyBucketLimits = [...]time.Duration{
+	5 * time.Millisecond,
+	25 * time.Millisecond,
+	100 * time.Millisecond,
+	250 * time.Millisecond,
+	500 * time.Millisecond,
+}
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -228,6 +239,11 @@ func (a *api) metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	fmt.Fprintf(w, "queuelens_http_requests_total %d\nqueuelens_jobs_created_total %d\nqueuelens_queue_stream_length %d\nqueuelens_queue_pending %d\n", requestsTotal.Load(), jobsCreated.Load(), queueStats.StreamLength, queueStats.Pending)
+	fmt.Fprintf(w, "queuelens_http_request_duration_seconds_count %d\nqueuelens_http_request_duration_seconds_sum %.6f\n", requestLatencyCount.Load(), float64(requestLatencySumMicros.Load())/1_000_000)
+	for index, limit := range latencyBucketLimits {
+		fmt.Fprintf(w, "queuelens_http_request_duration_seconds_bucket{le=\"%.3f\"} %d\n", limit.Seconds(), cumulativeLatencyBucket(index))
+	}
+	fmt.Fprintf(w, "queuelens_http_request_duration_seconds_bucket{le=\"+Inf\"} %d\n", requestLatencyCount.Load())
 	for _, status := range []string{"PENDING", "RUNNING", "RETRYING", "COMPLETED", "FAILED"} {
 		fmt.Fprintf(w, "queuelens_jobs{status=%q} %d\n", status, jobStats[status])
 	}
@@ -242,8 +258,29 @@ func logging(next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Request-ID", requestID)
 		next.ServeHTTP(w, r)
-		log.Printf("request_id=%s method=%s path=%s duration=%s", requestID, r.Method, r.URL.Path, time.Since(started))
+		duration := time.Since(started)
+		observeRequestDuration(duration)
+		log.Printf("request_id=%s method=%s path=%s duration=%s", requestID, r.Method, r.URL.Path, duration)
 	})
+}
+
+func observeRequestDuration(duration time.Duration) {
+	requestLatencyCount.Add(1)
+	requestLatencySumMicros.Add(uint64(duration / time.Microsecond))
+	for index, limit := range latencyBucketLimits {
+		if duration <= limit {
+			requestLatencyBuckets[index].Add(1)
+			return
+		}
+	}
+}
+
+func cumulativeLatencyBucket(index int) uint64 {
+	var total uint64
+	for current := 0; current <= index; current++ {
+		total += requestLatencyBuckets[current].Load()
+	}
+	return total
 }
 func env(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
