@@ -11,6 +11,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -74,7 +75,9 @@ func main() {
 	mux.HandleFunc("GET /api/queue", service.queueStats)
 	mux.Handle("/", http.FileServer(http.Dir("web")))
 	server := &http.Server{Addr: ":8080", Handler: logging(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
-	server.Handler = logging(middleware.NewRateLimiter(60, time.Minute).Middleware(middleware.APIKey(env("API_KEY", ""))(mux)))
+	rateLimitRequests := envInt("RATE_LIMIT_REQUESTS", 60)
+	rateLimitWindow := time.Duration(envInt("RATE_LIMIT_WINDOW_SECONDS", 60)) * time.Second
+	server.Handler = logging(middleware.NewRateLimiter(rateLimitRequests, rateLimitWindow).Middleware(middleware.APIKey(env("API_KEY", ""))(mux)))
 	pprofServer := startPprofServer(env("PPROF_ADDR", ""))
 	log.Printf("QueueLens API listening on %s", server.Addr)
 	serverErr := make(chan error, 1)
@@ -287,6 +290,14 @@ func env(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envInt(key string, fallback int) int {
+	value, err := strconv.Atoi(os.Getenv(key))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }
 func newID() string {
 	var bytes [16]byte

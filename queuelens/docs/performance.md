@@ -23,6 +23,10 @@ run, use:
 REQUESTS=1000 CONCURRENCY=50 ./scripts/performance.sh
 ```
 
+The performance wrapper raises the API rate limit for the benchmark only. The
+normal Compose default remains 60 requests per minute. Set
+`RATE_LIMIT_REQUESTS` explicitly when comparing different limits.
+
 Set `RESULT_FILE` to keep the JSON result in a chosen location:
 
 ```bash
