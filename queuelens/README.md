@@ -109,6 +109,8 @@ REQUESTS=1000 CONCURRENCY=50 node scripts/benchmark.js
 The benchmark procedure and reporting guidance are documented in
 `docs/performance.md`.
 
+A local reference run is recorded in `docs/performance-results.md`.
+
 Metrics are available at `http://localhost:8083/metrics`. Prometheus also
 loads alert rules from `observability/alerts.yml` for API availability, queue
 backlog and failed jobs. Kafka lifecycle events are published to the

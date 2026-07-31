@@ -44,7 +44,7 @@ github.com/coolspartak9819-rgb/queuelens
 
 Сервис для наблюдения за фоновыми задачами и очередями. Реализованы Redis Streams, consumer groups, retry policy, dead letter queue, отдельный worker и transactional outbox.
 
-Также есть идемпотентность на PostgreSQL, rate limiting, request IDs, Prometheus, Grafana, Kafka-аудит, Kubernetes-манифесты и поддержка нескольких worker-реплик. Добавил pprof, latency histogram и benchmark со сбором RPS, p50, p95 и p99.
+Также есть идемпотентность на PostgreSQL, rate limiting, request IDs, Prometheus, Grafana, Kafka-аудит, Kubernetes-манифесты и поддержка нескольких worker-реплик. Добавил pprof, latency histogram и benchmark со сбором RPS, p50, p95 и p99. В локальном прогоне 5000 запросов при concurrency 100 дали 3953 RPS, p95 34 мс и 100% ответов 202.
 
 EDGEGATE NODE
 github.com/coolspartak9819-rgb/edgegate-node
