@@ -1,0 +1,82 @@
+БОЙКО ИГОРЬ СЕРГЕЕВИЧ
+
+GO BACKEND DEVELOPER
+Distributed Systems / Platform Engineering
+
+Санкт-Петербург · удалённая работа
+Telegram: @oneday2
+Email: beatch1beatch@yandex.ru
+GitHub: github.com/coolspartak9819-rgb
+
+ПРОФИЛЬ
+
+Backend-разработчик на Go с опытом разработки около 2,5 лет. Создаю HTTP и gRPC сервисы, проектирую доменную логику и интеграции, работаю с PostgreSQL, Redis и брокерами сообщений.
+
+Основной интерес связан с распределёнными системами: обработкой событий, очередями, идемпотентностью, повторной доставкой сообщений и корректным поведением при сбоях отдельных компонентов. Самостоятельно довожу сервис от API и доменной логики до тестов, Docker-окружения, метрик и проверок готовности.
+
+ОПЫТ РАЗРАБОТКИ
+
+GO BACKEND DEVELOPER
+Проектная разработка и собственные backend-проекты · около 2,5 лет
+
+Разрабатывал backend-сервисы на Go и самостоятельно принимал основные технические решения: структуру проекта, API, работу с базой данных, интеграции, обработку ошибок и локальное окружение.
+
+• Реализовал сервис обработки заказов с Event Sourcing и восстановлением состояния агрегата из истории событий.
+• Спроектировал Saga Orchestrator для оплаты и резервирования товаров. При сбое резервирования выполняется возврат платежа.
+• Добавил PostgreSQL Event Store с проверкой версии агрегата для защиты от конфликтующих изменений.
+• Реализовал transactional outbox и публикацию событий через NATS JetStream с последующей передачей событий в Kafka. Учёл at-least-once доставку и возможность повторной обработки.
+• Подключил платежный и складской сервисы по gRPC и описал контракты в Protocol Buffers.
+• Добавил идемпотентность запросов, health checks, Prometheus-метрики и graceful shutdown.
+• Написал unit, integration и e2e тесты для доменной логики, middleware и сценариев отказа.
+• Добавил конкурентный тест Event Store и проверку OCC под одновременной записью из 32 goroutine.
+
+ОСНОВНЫЕ ПРОЕКТЫ
+
+ORDER SAGA & EVENT SOURCING IN GO
+github.com/coolspartak9819-rgb/order-saga-eventsourcing
+
+Сервис обработки заказов с отдельными платежным и складским сервисами. Состояние заказа формируется из доменных событий, а Saga управляет последовательностью действий и компенсацией при ошибках.
+
+Go, PostgreSQL, database/sql, gRPC, Protocol Buffers, NATS JetStream, Kafka, Docker Compose.
+
+QUEUE LENS
+github.com/coolspartak9819-rgb/queuelens
+
+Сервис для наблюдения за фоновыми задачами и очередями. Реализованы Redis Streams, consumer groups, retry policy, dead letter queue, отдельный worker и transactional outbox.
+
+Также есть идемпотентность на PostgreSQL, rate limiting, request IDs, Prometheus, Grafana, Kafka-аудит, Kubernetes-манифесты и поддержка нескольких worker-реплик. Добавил pprof, latency histogram и benchmark со сбором RPS, p50, p95 и p99.
+
+EDGEGATE NODE
+github.com/coolspartak9819-rgb/edgegate-node
+
+API Gateway и reverse proxy на Node.js 22. Реализованы балансировка Round Robin, Least Connections и Consistent Hashing, ограничение запросов через Redis Token Bucket, WAF, circuit breaker, health checks и динамическая загрузка middleware.
+
+Есть нагрузочные проверки, Prometheus, Grafana, Kubernetes-манифесты и e2e-проверка отказа backend-инстанса. Отдельный chaos-сценарий проверяет остановку Redis и восстановление шлюза после запуска зависимости.
+
+PLATFORM ENGINEERING LAB
+github.com/coolspartak9819-rgb/platform-engineering-lab
+
+Инфраструктурный стенд с Docker Compose, nginx reverse proxy, HTTP-кэшированием, MySQL, Redis, Prometheus, Grafana, GitLab CI, Ansible и Kubernetes. Есть smoke checks и runbooks для диагностики и отката изменений.
+
+ТЕХНИЧЕСКИЕ НАВЫКИ
+
+Go и backend: Go, стандартная библиотека, net/http, context, goroutines, channels, REST API, gRPC, Protocol Buffers, middleware, JSON, pprof.
+
+Распределённые системы: Event Sourcing, Saga, transactional outbox, идемпотентность, optimistic concurrency control, retries, dead letter queue, at-least-once delivery.
+
+Данные и сообщения: PostgreSQL, MySQL, Redis, database/sql, транзакции, индексы, Redis Streams, NATS JetStream, Apache Kafka.
+
+Инфраструктура и эксплуатация: Docker, Docker Compose, Linux, nginx, Kubernetes, Ansible, GitLab CI, GitHub Actions.
+
+Наблюдаемость и тестирование: Prometheus, Grafana, structured logging, health checks, readiness и liveness probes, unit tests, table-driven tests, integration tests, e2e checks.
+
+Дополнительно: Node.js, TypeScript, Express, Fastify, HTML, CSS.
+
+ОБРАЗОВАНИЕ
+
+Ставропольский государственный медицинский университет
+Лечебное дело, 2024
+
+ЦЕЛЕВАЯ ПОЗИЦИЯ
+
+Middle Go Backend Developer. Интересны продуктовые и инженерные команды, где нужно развивать сервисы, интеграции, очереди и внутренние платформы. Готов брать ответственность за задачу от проектирования до тестирования и сопровождения.
